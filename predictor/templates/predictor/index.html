@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dự đoán Lượng Mưa</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f0f4ff;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-title {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .result-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+        }
+
+        .metrics {
+            margin-top: 16px;
+            font-size: 13px;
+            color: #333;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px 20px;
+        }
+
+        .metric-item {
+            background: #fff;
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid #e6e9f2;
+        }
+
+        .result-value::after {
+            content: ' mm';
+            font-size: 16px;
+            margin-left: 8px;
+            color: #999;
+        }
+
+        .error {
+            background: #fee;
+            border-left-color: #c33;
+            color: #c33;
+        }
+
+        .success {
+            background: #f0f4ff;
+            border-left-color: #667eea;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info {
+            font-size: 12px;
+            color: #999;
+            margin-top: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div>
+                <h1 style="margin:0">🌧️ Dự đoán Lượng Mưa</h1>
+                <p class="subtitle" style="margin-top:4px">Dự đoán lượng mưa tại Đà Nẵng</p>
+            </div>
+            <div style="text-align:right">
+                {% if user.is_authenticated %}
+                    <div style="font-size:13px;color:#666">Xin chào, {{ user.username }} — <a href="{% url 'logout' %}">Đăng xuất</a></div>
+                {% else %}
+                    <a href="{% url 'login' %}" style="background:#667eea;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none">Đăng nhập</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Thông tin bộ dữ liệu -->
+        <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 25px; font-size: 13px;">
+            <h3 style="color: #667eea; margin-bottom: 10px;">📊 Thông tin dữ liệu</h3>
+            <p><strong>Tổng số bản ghi:</strong> {{ total_records }} ngày</p>
+            <p><strong>Khoảng thời gian:</strong> {{ start_date }} - {{ end_date }}</p>
+            <p><strong>Lượng mưa trung bình:</strong> {{ avg_rainfall }} mm/ngày</p>
+            <p><strong>Lượng mưa cực đại:</strong> {{ max_rainfall }} mm</p>
+            <p><strong>Lượng mưa cực tiểu:</strong> {{ min_rainfall }} mm</p>
+        </div>
+
+        <!-- Biểu đồ -->
+        <div style="margin-bottom: 25px;">
+            <h3 style="color: #667eea; margin-bottom: 15px;">📈 Biểu đồ lượng mưa</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
+                    <canvas id="yearlyChart"></canvas>
+                </div>
+                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <form id="predictForm">
+            {% csrf_token %}
+            <div class="input-row">
+                <div class="form-group">
+                    <label for="year">Năm:</label>
+                    <input 
+                        type="number" 
+                        id="year" 
+                        name="year" 
+                        min="1979" 
+                        max="2100" 
+                        value="2024" 
+                        required
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="month">Tháng:</label>
+                    <select id="month" name="month" required>
+                        <option value="1">Tháng 1</option>
+                        <option value="2">Tháng 2</option>
+                        <option value="3">Tháng 3</option>
+                        <option value="4">Tháng 4</option>
+                        <option value="5">Tháng 5</option>
+                        <option value="6">Tháng 6</option>
+                        <option value="7" selected>Tháng 7</option>
+                        <option value="8">Tháng 8</option>
+                        <option value="9">Tháng 9</option>
+                        <option value="10">Tháng 10</option>
+                        <option value="11">Tháng 11</option>
+                        <option value="12">Tháng 12</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit">Dự đoán</button>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Đang xử lý...</p>
+        </div>
+
+        <div class="result" id="result">
+            <div class="result-title" id="resultTitle"></div>
+            <div class="result-value" id="resultValue"></div>
+        </div>
+
+        <div class="result" id="metrics" style="display:none">
+            <div class="result-title">Chỉ số đánh giá mô hình</div>
+            <div class="metrics" id="metricsList">
+                <div class="metric-item">MAE: <span id="mae">-</span></div>
+                <div class="metric-item">RMSE: <span id="rmse">-</span></div>
+                <div class="metric-item">MAPE (%): <span id="mape">-</span></div>
+                <div class="metric-item">Độ chính xác (%): <span id="accuracy">-</span></div>
+                <div class="metric-item">% trong ±20%: <span id="within20">-</span></div>
+            </div>
+        </div>
+
+        <!-- Biểu đồ so sánh dự đoán -->
+        <div id="comparisonChartContainer" style="display:none; margin-top: 25px; padding: 20px; background: #f9f9f9; border-radius: 8px;">
+            <h3 style="color: #667eea; margin-bottom: 15px;">📊 So sánh dự đoán vs Lịch sử</h3>
+            <canvas id="comparisonChart"></canvas>
+        </div>
+
+        <!-- Lịch sử dự đoán (chỉ hiển thị khi đăng nhập) -->
+        {% if user.is_authenticated %}
+        <div style="margin-top: 30px; padding: 20px; background: #f9f9f9; border-radius: 8px;">
+            <h3 style="color: #667eea; margin-bottom: 15px;">📋 Lịch sử dự đoán</h3>
+            <div id="historyContainer" style="max-height: 300px; overflow-y: auto;">
+                <p style="text-align: center; color: #999;">Đang tải...</p>
+            </div>
+        </div>
+        {% else %}
+        <div style="margin-top: 30px; padding: 20px; background: #fef3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+            <p style="color: #856404; margin: 0;">💡 <a href="{% url 'login' %}">Đăng nhập</a> để lưu lịch sử dự đoán</p>
+        </div>
+        {% endif %}
+
+        <p class="info">💡 Dữ liệu được huấn luyện từ năm 1979-2013</p>
+    </div>
+
+    <script>
+        // Load prediction history
+        async function loadHistory() {
+            const historyContainer = document.getElementById('historyContainer');
+            if (!historyContainer) return;
+
+            try {
+                const response = await fetch('/history/');
+                const data = await response.json();
+
+                if (data.success && data.data.length > 0) {
+                    let html = '<table style="width:100%;border-collapse:collapse;">';
+                    html += '<tr style="background:#667eea;color:#fff;text-align:left;">';
+                    html += '<th style="padding:10px;border:1px solid #ddd;">Tháng/Năm</th>';
+                    html += '<th style="padding:10px;border:1px solid #ddd;">Dự đoán (mm)</th>';
+                    html += '<th style="padding:10px;border:1px solid #ddd;">TB lịch sử (mm)</th>';
+                    html += '<th style="padding:10px;border:1px solid #ddd;">Thời gian</th>';
+                    html += '</tr>';
+
+                    data.data.forEach((pred, idx) => {
+                        const bgColor = idx % 2 === 0 ? '#fff' : '#f9f9f9';
+                        html += `<tr style="background:${bgColor};">`;
+                        html += `<td style="padding:10px;border:1px solid #ddd;">${pred.date}</td>`;
+                        html += `<td style="padding:10px;border:1px solid #ddd;"><strong>${pred.predicted}</strong></td>`;
+                        html += `<td style="padding:10px;border:1px solid #ddd;">${pred.historical_avg}</td>`;
+                        html += `<td style="padding:10px;border:1px solid #ddd;font-size:12px;">${pred.created}</td>`;
+                        html += '</tr>';
+                    });
+                    html += '</table>';
+                    historyContainer.innerHTML = html;
+                } else {
+                    historyContainer.innerHTML = '<p style="text-align:center;color:#999;">Chưa có dự đoán nào</p>';
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+                historyContainer.innerHTML = '<p style="text-align:center;color:#c33;">Lỗi tải lịch sử</p>';
+            }
+        }
+
+        // Initialize charts
+        let yearlyChart = null;
+        let monthlyChart = null;
+        let comparisonChart = null;
+
+        // Draw comparison chart
+        function drawComparisonChart(year, month, prediction, historicalData, historicalLabels) {
+            const container = document.getElementById('comparisonChartContainer');
+            const canvas = document.getElementById('comparisonChart');
+            
+            if (!canvas) return;
+            
+            // Destroy old chart if exists
+            if (comparisonChart) {
+                comparisonChart.destroy();
+            }
+            
+            // Prepare data
+            const labels = historicalLabels ? [...historicalLabels, `Dự đoán ${month}/${year}`] : ['Dự đoán'];
+            let data = [];
+            if (historicalData && historicalData.length > 0) {
+                data = [...historicalData, prediction];
+            } else {
+                data = [prediction];
+            }
+            
+            const ctx = canvas.getContext('2d');
+            comparisonChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Lượng mưa (mm)',
+                        data: data,
+                        backgroundColor: data.map((val, idx) => 
+                            idx === data.length - 1 ? 'rgba(255, 159, 64, 0.7)' : 'rgba(102, 126, 234, 0.7)'
+                        ),
+                        borderColor: data.map((val, idx) => 
+                            idx === data.length - 1 ? '#ff9f40' : '#667eea'
+                        ),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: {
+                                font: {size: 12}
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: `So sánh lượng mưa tháng ${month}`,
+                            font: {size: 14, weight: 'bold'}
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Lượng mưa (mm)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            container.style.display = 'block';
+        }
+
+        // Load chart data
+        async function loadCharts() {
+            try {
+                // Yearly data
+                const yearlyResp = await fetch('/chart-data/?type=yearly');
+                const yearlyData = await yearlyResp.json();
+                
+                if (yearlyData.success) {
+                    const yearlyCtx = document.getElementById('yearlyChart').getContext('2d');
+                    yearlyChart = new Chart(yearlyCtx, {
+                        type: 'line',
+                        data: {
+                            labels: yearlyData.labels,
+                            datasets: [{
+                                label: 'Tổng lượng mưa (mm)',
+                                data: yearlyData.data,
+                                borderColor: '#667eea',
+                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.4,
+                                pointRadius: 4,
+                                pointBackgroundColor: '#667eea'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    labels: {
+                                        font: {size: 12}
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Lượng mưa (mm)'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Monthly data
+                const monthlyResp = await fetch('/chart-data/?type=monthly');
+                const monthlyData = await monthlyResp.json();
+                
+                if (monthlyData.success) {
+                    const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+                    monthlyChart = new Chart(monthlyCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: monthlyData.labels,
+                            datasets: [{
+                                label: 'Trung bình lượng mưa (mm)',
+                                data: monthlyData.data,
+                                backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                                borderColor: '#667eea',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    labels: {
+                                        font: {size: 12}
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Lượng mưa (mm)'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading charts:', error);
+            }
+        }
+
+        // Load on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadCharts();
+            loadHistory();
+        });
+
+        const form = document.getElementById('predictForm');
+        const result = document.getElementById('result');
+        const loading = document.getElementById('loading');
+        const resultTitle = document.getElementById('resultTitle');
+        const resultValue = document.getElementById('resultValue');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const year = document.getElementById('year').value;
+            const month = document.getElementById('month').value;
+            const monthName = document.getElementById('month').options[document.getElementById('month').selectedIndex].text;
+
+            loading.style.display = 'block';
+            result.classList.remove('show');
+
+            try {
+                const formData = new FormData();
+                formData.append('year', year);
+                formData.append('month', month);
+                formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+                const response = await fetch('/predict/', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                loading.style.display = 'none';
+
+                if (data.success) {
+                    resultTitle.textContent = `${monthName} năm ${year}`;
+                    resultValue.textContent = data.rainfall;
+                    result.classList.add('show', 'success');
+                    
+                    // Vẽ biểu đồ so sánh
+                    if (data.historical_data && data.historical_labels) {
+                        drawComparisonChart(year, month, data.rainfall, data.historical_data, data.historical_labels);
+                    }
+                    
+                    // Hiển thị metrics nếu có
+                    if (data.metrics) {
+                        document.getElementById('mae').textContent = data.metrics.mae !== null ? data.metrics.mae : '-';
+                        document.getElementById('rmse').textContent = data.metrics.rmse !== null ? data.metrics.rmse : '-';
+                        document.getElementById('accuracy').textContent = data.metrics.accuracy_percent !== null ? data.metrics.accuracy_percent : '-';
+                        document.getElementById('metrics').style.display = 'block';
+                    } else {
+                        document.getElementById('metrics').style.display = 'none';
+                    }
+                    // Reload history
+                    loadHistory();
+                } else {
+                    resultTitle.textContent = 'Lỗi: ' + data.error;
+                    result.classList.add('show', 'error');
+                    document.getElementById('metrics').style.display = 'none';
+                    document.getElementById('comparisonChartContainer').style.display = 'none';
+                }
+            } catch (error) {
+                loading.style.display = 'none';
+                resultTitle.textContent = 'Lỗi: ' + error.message;
+                result.classList.add('show', 'error');
+            }
+        });
+    </script>
+</body>
+</html>
