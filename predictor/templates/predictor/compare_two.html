@@ -1,0 +1,111 @@
+{% extends "predictor/base.html" %}
+{% load static %}
+
+{% block title %}Compare Two Models{% endblock %}
+
+{% block extra_css %}
+<style>
+.container-two { max-width: 1100px; margin: 0 auto; padding: 20px; }
+.controls { display:flex; gap:12px; align-items:center; margin-bottom:18px; }
+.card { background:#fff; padding:18px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.06); }
+.side-by-side { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:18px; }
+.metric { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f0f2f5; }
+.metric strong { color:#333 }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-two">
+    <h2>So sánh hai mô hình</h2>
+    {% if error %}
+        <div style="color:red">Error: {{ error }}</div>
+    {% endif %}
+
+    <div class="controls">
+        <label>Model A:
+            <select id="modelA"></select>
+        </label>
+        <label>Model B:
+            <select id="modelB"></select>
+        </label>
+        <button id="swapBtn" class="card">Swap</button>
+    </div>
+
+    <div class="side-by-side">
+        <div class="card" id="cardA">
+            <h3 id="nameA">Model A</h3>
+            <div class="metric"><span>MAE</span><strong id="maeA">-</strong></div>
+            <div class="metric"><span>RMSE</span><strong id="rmseA">-</strong></div>
+            <div class="metric"><span>R²</span><strong id="r2A">-</strong></div>
+        </div>
+
+        <div class="card" id="cardB">
+            <h3 id="nameB">Model B</h3>
+            <div class="metric"><span>MAE</span><strong id="maeB">-</strong></div>
+            <div class="metric"><span>RMSE</span><strong id="rmseB">-</strong></div>
+            <div class="metric"><span>R²</span><strong id="r2B">-</strong></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <canvas id="compareChart" height="120"></canvas>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    const serverModels = JSON.parse('{{ models_json|escapejs }}');
+    const keys = Object.keys(serverModels);
+
+    const selA = document.getElementById('modelA');
+    const selB = document.getElementById('modelB');
+
+    keys.forEach(k => {
+        const optA = document.createElement('option'); optA.value = k; optA.text = serverModels[k].name; selA.appendChild(optA);
+        const optB = document.createElement('option'); optB.value = k; optB.text = serverModels[k].name; selB.appendChild(optB);
+    });
+
+    selA.selectedIndex = 0; selB.selectedIndex = Math.min(1, keys.length-1);
+
+    function renderCards(){
+        const a = selA.value; const b = selB.value;
+        const A = serverModels[a]; const B = serverModels[b];
+        document.getElementById('nameA').textContent = A.name;
+        document.getElementById('maeA').textContent = A.mae ?? 'N/A';
+        document.getElementById('rmseA').textContent = A.rmse ?? 'N/A';
+        document.getElementById('r2A').textContent = A.r2_score ?? 'N/A';
+
+        document.getElementById('nameB').textContent = B.name;
+        document.getElementById('maeB').textContent = B.mae ?? 'N/A';
+        document.getElementById('rmseB').textContent = B.rmse ?? 'N/A';
+        document.getElementById('r2B').textContent = B.r2_score ?? 'N/A';
+
+        // update chart
+        updateChart(A, B);
+    }
+
+    document.getElementById('swapBtn').addEventListener('click', ()=>{
+        const iA = selA.selectedIndex, iB = selB.selectedIndex; selA.selectedIndex = iB; selB.selectedIndex = iA; renderCards();
+    });
+
+    selA.addEventListener('change', renderCards);
+    selB.addEventListener('change', renderCards);
+
+    // Chart
+    const ctx = document.getElementById('compareChart').getContext('2d');
+    let compareChart = new Chart(ctx, { type: 'bar', data: { labels: ['MAE','RMSE','R²'], datasets: [] }, options: { responsive:true, maintainAspectRatio:false } });
+
+    function updateChart(A, B){
+        const aVals = [A.mae||0, A.rmse||0, A.r2_score||0];
+        const bVals = [B.mae||0, B.rmse||0, B.r2_score||0];
+        compareChart.data.datasets = [
+            { label: A.name, data: aVals, backgroundColor: A.color || '#4e73df' },
+            { label: B.name, data: bVals, backgroundColor: B.color || '#e74c3c' }
+        ];
+        compareChart.update();
+    }
+
+    renderCards();
+</script>
+
+{% endblock %}

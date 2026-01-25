@@ -22,10 +22,22 @@ def train_model(csv_path, model_path):
     df['rainfall_ma_12'] = df['rainfall'].rolling(window=12, min_periods=1).mean()
     df['trend'] = range(len(df))
     df['quarter'] = (df['month'] - 1) // 3 + 1
+    
+    # Weather features
+    df['temp_lag_1'] = df['temperature'].shift(1)
+    df['temp_lag_12'] = df['temperature'].shift(12)
+    df['temp_ma_3'] = df['temperature'].rolling(window=3, min_periods=1).mean()
+    df['humidity_lag_1'] = df['humidity'].shift(1)
+    df['humidity_lag_12'] = df['humidity'].shift(12)
+    df['humidity_ma_3'] = df['humidity'].rolling(window=3, min_periods=1).mean()
+    df['wind_lag_1'] = df['wind_speed'].shift(1)
+    df['wind_lag_12'] = df['wind_speed'].shift(12)
+    df['wind_ma_3'] = df['wind_speed'].rolling(window=3, min_periods=1).mean()
+    
     df = df.dropna()
     
     # Tách features
-    feature_cols = [col for col in df.columns if col not in ['rainfall', 'year', 'month']]
+    feature_cols = [col for col in df.columns if col not in ['rainfall', 'year', 'month', 'date']]
     feature_cols.extend(['year', 'month'])
     
     X = df[feature_cols]
