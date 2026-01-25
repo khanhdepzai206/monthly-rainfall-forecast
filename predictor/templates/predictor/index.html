@@ -211,9 +211,17 @@
             </div>
             <div style="text-align:right">
                 {% if user.is_authenticated %}
-                    <div style="font-size:13px;color:#666">Xin chào, {{ user.username }} — <a href="{% url 'logout' %}">Đăng xuất</a></div>
+                        <div style="font-size:13px;color:#666">Xin chào, {{ user.username }} — <a href="{% url 'logout' %}">Đăng xuất</a></div>
+                        <div style="margin-top:8px">
+                            <a href="{% url 'compare_two' %}" style="background:#44a08d;color:#fff;padding:6px 10px;border-radius:6px;text-decoration:none;margin-right:8px;">So sánh 2 mô hình</a>
+                            <a href="{% url 'comparison' %}" style="background:#667eea;color:#fff;padding:6px 10px;border-radius:6px;text-decoration:none;">So sánh mô hình</a>
+                        </div>
                 {% else %}
                     <a href="{% url 'login' %}" style="background:#667eea;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none">Đăng nhập</a>
+                        <div style="margin-top:8px">
+                            <a href="{% url 'compare_two' %}" style="background:#44a08d;color:#fff;padding:6px 10px;border-radius:6px;text-decoration:none;margin-right:8px;">So sánh 2 mô hình</a>
+                            <a href="{% url 'comparison' %}" style="background:#667eea;color:#fff;padding:6px 10px;border-radius:6px;text-decoration:none;">So sánh mô hình</a>
+                        </div>
                 {% endif %}
             </div>
         </div>
@@ -221,12 +229,36 @@
         <!-- Thông tin bộ dữ liệu -->
         <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 25px; font-size: 13px;">
             <h3 style="color: #667eea; margin-bottom: 10px;">📊 Thông tin dữ liệu</h3>
-            <p><strong>Tổng số bản ghi:</strong> {{ total_records }} ngày</p>
+            <p><strong>Tổng số bản ghi:</strong> {{ total_records }} tháng</p>
             <p><strong>Khoảng thời gian:</strong> {{ start_date }} - {{ end_date }}</p>
-            <p><strong>Lượng mưa trung bình:</strong> {{ avg_rainfall }} mm/ngày</p>
+            <p><strong>Lượng mưa trung bình:</strong> {{ avg_rainfall }} mm/tháng</p>
             <p><strong>Lượng mưa cực đại:</strong> {{ max_rainfall }} mm</p>
             <p><strong>Lượng mưa cực tiểu:</strong> {{ min_rainfall }} mm</p>
+            {% if has_weather_data %}
+            <p><strong>Nhiệt độ trung bình:</strong> {{ avg_temperature }}°C</p>
+            <p><strong>Độ ẩm trung bình:</strong> {{ avg_humidity }}%</p>
+            <p><strong>Tốc độ gió trung bình:</strong> {{ avg_wind_speed }} km/h</p>
+            {% endif %}
         </div>
+
+        <!-- Thông tin mô hình -->
+        {% if model_info %}
+        <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin-bottom: 25px; font-size: 13px;">
+            <h3 style="color: #667eea; margin-bottom: 10px;">🤖 Mô hình dự đoán</h3>
+            <p><strong>Tên mô hình:</strong> {{ model_info.name }}</p>
+            <p><strong>Số features:</strong> {{ model_info.features|length }}</p>
+            <p><strong>Số điểm dữ liệu:</strong> {{ model_info.data_points }}</p>
+            <p><strong>Khoảng training:</strong> {{ model_info.training_period }}</p>
+            <p><strong>Performance:</strong> MAE={{ model_info.performance.mae }}, RMSE={{ model_info.performance.rmse }}, R²={{ model_info.performance.r2_score }}</p>
+            
+            <h4 style="color: #667eea; margin: 10px 0 5px 0;">Features được sử dụng:</h4>
+            <ul style="margin: 0; padding-left: 20px;">
+                {% for feature in model_info.features %}
+                <li><strong>{{ feature.name }}:</strong> {{ feature.description }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
 
         <!-- Biểu đồ -->
         <div style="margin-bottom: 25px;">
@@ -273,6 +305,15 @@
                         <option value="12">Tháng 12</option>
                     </select>
                 </div>
+            </div>
+
+            <div class="form-group">
+                <label for="modelSelect">Chọn mô hình dự đoán:</label>
+                <select id="modelSelect" name="model_type" required>
+                    <option value="gradient_boosting_weather" selected>🤖 Gradient Boosting + Weather Data</option>
+                    <option value="random_forest_weather">🌲 Random Forest + Weather Data</option>
+                    <option value="sarimax">📈 SARIMA (Seasonal Average)</option>
+                </select>
             </div>
 
             <button type="submit">Dự đoán</button>
@@ -545,6 +586,7 @@
             const year = document.getElementById('year').value;
             const month = document.getElementById('month').value;
             const monthName = document.getElementById('month').options[document.getElementById('month').selectedIndex].text;
+            const modelType = document.getElementById('modelSelect').value;
 
             loading.style.display = 'block';
             result.classList.remove('show');
@@ -553,6 +595,7 @@
                 const formData = new FormData();
                 formData.append('year', year);
                 formData.append('month', month);
+                formData.append('model_type', modelType);
                 formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
 
                 const response = await fetch('/predict/', {
@@ -564,9 +607,33 @@
                 loading.style.display = 'none';
 
                 if (data.success) {
-                    resultTitle.textContent = `${monthName} năm ${year}`;
-                    resultValue.textContent = data.rainfall;
+                    resultTitle.textContent = `Dự đoán tháng ${monthName} năm ${year}`;
+                    resultValue.textContent = `${data.rainfall} mm`;
                     result.classList.add('show', 'success');
+                    
+                    // Hiển thị thông tin weather nếu có
+                    if (data.weather_info) {
+                        const weatherHtml = `
+                            <div style="margin-top: 15px; padding: 10px; background: #f0f8ff; border-radius: 6px; font-size: 12px;">
+                                <strong>🌤️ Điều kiện thời tiết dự kiến:</strong><br>
+                                Nhiệt độ: ${data.weather_info.temperature}°C | 
+                                Độ ẩm: ${data.weather_info.humidity}% | 
+                                Gió: ${data.weather_info.wind_speed} km/h
+                            </div>
+                        `;
+                        result.insertAdjacentHTML('beforeend', weatherHtml);
+                    }
+                    
+                    // Hiển thị thông tin mô hình
+                    if (data.model_info) {
+                        const modelHtml = `
+                            <div style="margin-top: 10px; padding: 8px; background: #fff3cd; border-radius: 6px; font-size: 11px;">
+                                <strong>🤖 Mô hình:</strong> ${data.model_info.type} 
+                                (${data.model_info.features} features, ${data.model_info.data_points} điểm dữ liệu)
+                            </div>
+                        `;
+                        result.insertAdjacentHTML('beforeend', modelHtml);
+                    }
                     
                     // Vẽ biểu đồ so sánh
                     if (data.historical_data && data.historical_labels) {
@@ -577,7 +644,18 @@
                     if (data.metrics) {
                         document.getElementById('mae').textContent = data.metrics.mae !== null ? data.metrics.mae : '-';
                         document.getElementById('rmse').textContent = data.metrics.rmse !== null ? data.metrics.rmse : '-';
-                        document.getElementById('accuracy').textContent = data.metrics.accuracy_percent !== null ? data.metrics.accuracy_percent : '-';
+                        document.getElementById('accuracy').textContent = data.metrics.accuracy_percent !== null ? `${data.metrics.accuracy_percent}%` : '-';
+                        
+                        // Hiển thị thông tin mô hình chi tiết
+                        const modelInfoHtml = `
+                            <div style="margin-top: 10px; padding: 8px; background: #e8f5e8; border-radius: 6px; font-size: 11px;">
+                                <strong>🤖 ${data.metrics.model_type}</strong><br>
+                                <em>${data.metrics.model_description}</em><br>
+                                <strong>Features:</strong> ${data.metrics.features_used.join(', ')}
+                            </div>
+                        `;
+                        result.insertAdjacentHTML('beforeend', modelInfoHtml);
+                        
                         document.getElementById('metrics').style.display = 'block';
                     } else {
                         document.getElementById('metrics').style.display = 'none';

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Rainfall Project{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#f6f8fb; color:#222; }
+        .site-header { background: #fff; padding: 12px 20px; border-bottom:1px solid #e6e9ef; display:flex; justify-content:space-between; align-items:center; }
+        .site-title { font-weight:700; color:#333; }
+        .site-nav a { margin-left:12px; color:#4a5568; text-decoration:none; font-weight:600 }
+        .page { max-width:1200px; margin:24px auto; padding:0 18px; }
+        footer { text-align:center; color:#888; margin:40px 0 20px 0; font-size:13px }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <header class="site-header">
+        <div class="site-title">🌧️ Dự báo lượng mưa</div>
+        <nav class="site-nav">
+            <a href="{% url 'index' %}">Dashboard</a>
+            <a href="{% url 'comparison' %}">So sánh mô hình</a>
+            <a href="{% url 'compare_two' %}">So sánh 2 mô hình</a>
+            <a href="{% url 'prediction_history' %}">Lịch sử</a>
+        </nav>
+    </header>
+
+    <main class="page">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        © 2026 Rainfall Project — Generated for thesis
+    </footer>
+</body>
+</html>

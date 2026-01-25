@@ -35,3 +35,36 @@ def daily_to_monthly(input_file, output_file):
     monthly.to_csv(output_file, index=False)
     print(f"✔ File tháng đã tạo: {output_file}")
     print("✓ Đã chuyển dữ liệu ngày → tháng thành công!")
+
+def merge_weather_rainfall(rainfall_file, weather_file, output_file):
+    """
+    Merge rainfall data with weather data
+    """
+    # Load rainfall data
+    rainfall_df = pd.read_csv(rainfall_file)
+    rainfall_df['date'] = pd.to_datetime(rainfall_df[['year', 'month']].assign(day=1))
+
+    # Load weather data
+    weather_df = pd.read_csv(weather_file)
+    weather_df['date'] = pd.to_datetime(weather_df['date'])
+
+    # Aggregate weather data to monthly
+    weather_df['year'] = weather_df['date'].dt.year
+    weather_df['month'] = weather_df['date'].dt.month
+
+    monthly_weather = weather_df.groupby(['year', 'month']).agg({
+        'temperature': 'mean',
+        'humidity': 'mean',
+        'wind_speed': 'mean'
+    }).reset_index()
+
+    # Merge data
+    merged_df = pd.merge(rainfall_df, monthly_weather, on=['year', 'month'], how='inner')
+
+    # Sort by date
+    merged_df = merged_df.sort_values(['year', 'month']).reset_index(drop=True)
+
+    merged_df.to_csv(output_file, index=False)
+    print(f"✔ Merged data saved to {output_file}")
+    print(f"Total records: {len(merged_df)}")
+    print("✓ Đã merge dữ liệu mưa và thời tiết thành công!")
