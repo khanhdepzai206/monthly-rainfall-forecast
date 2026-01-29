@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chart.js Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+</head>
+<body>
+    <canvas id="testChart" width="400" height="200"></canvas>
+    <script>
+        window.addEventListener('load', function() {
+            console.log('Chart.js loaded:', typeof Chart);
+            try {
+                const canvas = document.getElementById('testChart');
+                const ctx = canvas.getContext('2d');
+                console.log('Canvas context:', ctx);
+
+                const data = {
+                    labels: ['A', 'B', 'C'],
+                    datasets: [{
+                        label: 'Test',
+                        data: [1, 2, 3],
+                        backgroundColor: ['red', 'blue', 'green']
+                    }]
+                };
+
+                const config = {
+                    type: 'bar',
+                    data: data
+                };
+
+                const chart = new Chart(ctx, config);
+                console.log('Chart created successfully');
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>

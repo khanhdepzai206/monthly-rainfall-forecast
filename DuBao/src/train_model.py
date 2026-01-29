@@ -33,7 +33,13 @@ def train_model(csv_path, model_path):
     df['wind_lag_1'] = df['wind_speed'].shift(1)
     df['wind_lag_12'] = df['wind_speed'].shift(12)
     df['wind_ma_3'] = df['wind_speed'].rolling(window=3, min_periods=1).mean()
-    
+    if 'cloud_cover' in df.columns:
+        df['cloud_cover_lag_1'] = df['cloud_cover'].shift(1)
+        df['cloud_cover_ma_3'] = df['cloud_cover'].rolling(window=3, min_periods=1).mean()
+    if 'surface_pressure' in df.columns:
+        df['surface_pressure_lag_1'] = df['surface_pressure'].shift(1)
+        df['surface_pressure_ma_3'] = df['surface_pressure'].rolling(window=3, min_periods=1).mean()
+
     df = df.dropna()
     
     # Tách features
@@ -62,9 +68,14 @@ def train_model(csv_path, model_path):
     # Train
     model.fit(X_scaled, y)
 
-    # Save model và scaler
+    base_year = int(df['year'].min())
     with open(model_path, "wb") as f:
-        pickle.dump({'model': model, 'scaler': scaler, 'feature_cols': feature_cols}, f)
+        pickle.dump({
+            'model': model,
+            'scaler': scaler,
+            'feature_cols': feature_cols,
+            'base_year': base_year,
+        }, f)
 
     print(f"Model saved: {model_path}")
     print("✓ Đã train mô hình Gradient Boosting (sai số thấp hơn Random Forest)!")

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dự đoán Lượng Mưa</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -200,6 +200,20 @@
             margin-top: 20px;
             text-align: center;
         }
+
+        .model-accuracy-box {
+            background: linear-gradient(135deg, #f0f4ff 0%, #e8eeff 100%);
+            border: 1px solid #c5d0f0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        .model-accuracy-content { font-size: 14px; }
+        .accuracy-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 6px 0; border-bottom: 1px solid #e0e6f5; }
+        .accuracy-row:last-of-type { border-bottom: none; }
+        .accuracy-label { color: #555; font-weight: 500; }
+        .accuracy-value { font-weight: 700; color: #667eea; }
+        .model-acc-desc { font-style: italic; }
     </style>
 </head>
 <body>
@@ -214,13 +228,11 @@
                         <div style="font-size:13px;color:#666">Xin chào, {{ user.username }} — <a href="{% url 'logout' %}">Đăng xuất</a></div>
                         <div style="margin-top:8px">
                             <a href="{% url 'compare_two' %}" style="background:#44a08d;color:#fff;padding:6px 10px;border-radius:6px;text-decoration:none;margin-right:8px;">So sánh 2 mô hình</a>
-                            <a href="{% url 'comparison' %}" style="background:#667eea;color:#fff;padding:6px 10px;border-radius:6px;text-decoration:none;">So sánh mô hình</a>
                         </div>
                 {% else %}
                     <a href="{% url 'login' %}" style="background:#667eea;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none">Đăng nhập</a>
                         <div style="margin-top:8px">
                             <a href="{% url 'compare_two' %}" style="background:#44a08d;color:#fff;padding:6px 10px;border-radius:6px;text-decoration:none;margin-right:8px;">So sánh 2 mô hình</a>
-                            <a href="{% url 'comparison' %}" style="background:#667eea;color:#fff;padding:6px 10px;border-radius:6px;text-decoration:none;">So sánh mô hình</a>
                         </div>
                 {% endif %}
             </div>
@@ -260,6 +272,12 @@
         </div>
         {% endif %}
 
+        <!-- Biểu đồ so sánh mô hình -->
+        <div style="background: #fff8f0; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+            <h3 style="color: #667eea; margin-bottom: 15px;">📊 So sánh độ chính xác các mô hình</h3>
+            <canvas id="modelsComparisonChart" width="800" height="300" style="max-height: 300px; width: 100%;"></canvas>
+        </div>
+
         <!-- Biểu đồ -->
         <div style="margin-bottom: 25px;">
             <h3 style="color: #667eea; margin-bottom: 15px;">📈 Biểu đồ lượng mưa</h3>
@@ -275,48 +293,50 @@
 
         <form id="predictForm">
             {% csrf_token %}
-            <div class="input-row">
-                <div class="form-group">
-                    <label for="year">Năm:</label>
-                    <input 
-                        type="number" 
-                        id="year" 
-                        name="year" 
-                        min="1979" 
-                        max="2100" 
-                        value="2024" 
-                        required
-                    >
-                </div>
-                <div class="form-group">
-                    <label for="month">Tháng:</label>
-                    <select id="month" name="month" required>
-                        <option value="1">Tháng 1</option>
-                        <option value="2">Tháng 2</option>
-                        <option value="3">Tháng 3</option>
-                        <option value="4">Tháng 4</option>
-                        <option value="5">Tháng 5</option>
-                        <option value="6">Tháng 6</option>
-                        <option value="7" selected>Tháng 7</option>
-                        <option value="8">Tháng 8</option>
-                        <option value="9">Tháng 9</option>
-                        <option value="10">Tháng 10</option>
-                        <option value="11">Tháng 11</option>
-                        <option value="12">Tháng 12</option>
-                    </select>
-                </div>
-            </div>
-
             <div class="form-group">
-                <label for="modelSelect">Chọn mô hình dự đoán:</label>
-                <select id="modelSelect" name="model_type" required>
-                    <option value="gradient_boosting_weather" selected>🤖 Gradient Boosting + Weather Data</option>
-                    <option value="random_forest_weather">🌲 Random Forest + Weather Data</option>
-                    <option value="sarimax">📈 SARIMA (Seasonal Average)</option>
+                <label for="predictDate">📅 Chọn ngày cần dự đoán lượng mưa:</label>
+                <input type="date" id="predictDate" name="predict_date" required
+                       min="1979-01-01" max="2100-12-31" value="2024-07-15"
+                       style="padding:12px; font-size:14px;">
+            </div>
+            <input type="hidden" name="mode" id="predictMode" value="daily">
+
+            {% if daily_model_available %}
+            <div class="form-group">
+                <label for="dailyModelSelect">🤖 Chọn mô hình dự đoán theo ngày:</label>
+                <select id="dailyModelSelect" name="model_type" style="padding:12px; font-size:14px;">
+                    <option value="daily_gradient_boosting">Gradient Boosting</option>
+                    <option value="daily_random_forest">Random Forest</option>
+                    <option value="daily_xgboost">XGBoost</option>
+                    <option value="daily_xgb_tuned">XGBoost Tuned</option>
+                    <option value="daily_stacking">Stacking Ensemble (Tốt nhất)</option>
                 </select>
             </div>
+            <div id="modelAccuracyBox" class="model-accuracy-box">
+                <h4 style="margin:0 0 10px 0; color:#667eea; font-size:15px;">📊 Thông tin mô hình</h4>
+                <div class="model-accuracy-content">
+                    <div class="accuracy-row">
+                        <span class="accuracy-label">Độ chính xác (R²):</span>
+                        <span class="accuracy-value" id="accR2">--</span>
+                    </div>
+                    <div class="accuracy-row">
+                        <span class="accuracy-label">MAE:</span>
+                        <span class="accuracy-value" id="accMae">--</span>
+                    </div>
+                    <div class="accuracy-row">
+                        <span class="accuracy-label">RMSE:</span>
+                        <span class="accuracy-value" id="accRmse">--</span>
+                    </div>
+                    <p class="model-acc-desc" id="modelAccDescription">Gradient Boosting với dữ liệu mưa + thời tiết theo ngày (lags 1, 7, 30 ngày, moving average 7 ngày).</p>
+                </div>
+            </div>
+            {% else %}
+            <div class="model-accuracy-box" style="background:#fff3cd; border-color:#ffc107;">
+                <p style="margin:0;">⚠ Chưa có mô hình theo ngày. Chạy: <code>cd DuBao/src && python train_daily_model.py</code> sau khi đã tạo <code>daily_combined.csv</code>.</p>
+            </div>
+            {% endif %}
 
-            <button type="submit">Dự đoán</button>
+            <button type="submit">Dự đoán theo ngày</button>
         </form>
 
         <div class="loading" id="loading">
@@ -330,13 +350,12 @@
         </div>
 
         <div class="result" id="metrics" style="display:none">
-            <div class="result-title">Chỉ số đánh giá mô hình</div>
+            <div class="result-title">Chỉ số đánh giá mô hình (độ chính xác)</div>
             <div class="metrics" id="metricsList">
-                <div class="metric-item">MAE: <span id="mae">-</span></div>
-                <div class="metric-item">RMSE: <span id="rmse">-</span></div>
-                <div class="metric-item">MAPE (%): <span id="mape">-</span></div>
-                <div class="metric-item">Độ chính xác (%): <span id="accuracy">-</span></div>
-                <div class="metric-item">% trong ±20%: <span id="within20">-</span></div>
+                <div class="metric-item">Độ chính xác (R²): <span id="metricR2">-</span></div>
+                <div class="metric-item">Độ chính xác ước lượng: <span id="accuracy">-</span></div>
+                <div class="metric-item">MAE (mm): <span id="mae">-</span></div>
+                <div class="metric-item">RMSE (mm): <span id="rmse">-</span></div>
             </div>
         </div>
 
@@ -364,6 +383,30 @@
     </div>
 
     <script>
+        // Metrics độ chính xác từng mô hình (từ server)
+        const MODELS_METRICS = {{ models_metrics_json|default:"{}"|safe }};
+
+        function updateModelAccuracyBox() {
+            const sel = document.getElementById('dailyModelSelect');
+            const key = sel ? sel.value : 'daily_gradient_boosting';
+            const m = MODELS_METRICS[key];
+            const accR2 = document.getElementById('accR2');
+            const accMae = document.getElementById('accMae');
+            const accRmse = document.getElementById('accRmse');
+            const desc = document.getElementById('modelAccDescription');
+            if (!m) return;
+            if (m.r2_score != null) {
+                accR2.textContent = (m.r2_score * 100).toFixed(1) + '%';
+            } else if (m.accuracy_percent != null) {
+                accR2.textContent = m.accuracy_percent + '%';
+            } else {
+                accR2.textContent = '--';
+            }
+            accMae.textContent = (m.mae != null ? m.mae + ' mm' : '--');
+            accRmse.textContent = (m.rmse != null ? m.rmse + ' mm' : '--');
+            desc.textContent = m.description || 'Mô hình dự đoán theo ngày với dữ liệu thời tiết.';
+        }
+
         // Load prediction history
         async function loadHistory() {
             const historyContainer = document.getElementById('historyContainer');
@@ -406,6 +449,114 @@
         let yearlyChart = null;
         let monthlyChart = null;
         let comparisonChart = null;
+        let modelsComparisonChart = null;
+
+        // Draw models comparison chart
+        function drawModelsComparisonChart() {
+            try {
+                // Check if Chart.js is loaded
+                if (typeof Chart === 'undefined') {
+                    console.error('Chart.js is not loaded yet');
+                    setTimeout(drawModelsComparisonChart, 100);
+                    return;
+                }
+
+                const canvas = document.getElementById('modelsComparisonChart');
+                if (!canvas) {
+                    console.error('Canvas modelsComparisonChart not found');
+                    return;
+                }
+
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    console.error('Could not get canvas context');
+                    return;
+                }
+
+                console.log('Creating models comparison chart...');
+
+                // Destroy old chart if exists
+                if (modelsComparisonChart) {
+                    modelsComparisonChart.destroy();
+                }
+
+                // Prepare data - hardcoded for testing
+                const labels = ['Stacking', 'Ensemble', 'XGBoost Tuned', 'XGBoost', 'Random Forest', 'Gradient Boosting'];
+                const r2Scores = [0.982, 0.448, 0.432, 0.406, 0.419, 0.398];
+
+                const data = {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Độ chính xác (R²)',
+                        data: r2Scores,
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(54, 162, 235, 0.8)',
+                            'rgba(255, 205, 86, 0.8)',
+                            'rgba(75, 192, 192, 0.8)',
+                            'rgba(153, 102, 255, 0.8)',
+                            'rgba(255, 159, 64, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 205, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                };
+
+                const config = {
+                    type: 'bar',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `R²: ${(context.parsed.y * 100).toFixed(1)}%`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 1,
+                                ticks: {
+                                    callback: function(value) {
+                                        return (value * 100).toFixed(0) + '%';
+                                    }
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Độ chính xác (R²)'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Mô hình'
+                                }
+                            }
+                        }
+                    }
+                };
+
+                modelsComparisonChart = new Chart(ctx, config);
+                console.log('Models comparison chart created successfully');
+            } catch (error) {
+                console.error('Error creating models comparison chart:', error);
+            }
+        }
 
         // Draw comparison chart
         function drawComparisonChart(year, month, prediction, historicalData, historicalLabels) {
@@ -569,9 +720,18 @@
         }
 
         // Load on page load
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('load', () => {
             loadCharts();
             loadHistory();
+            // Delay models comparison chart to avoid conflicts
+            setTimeout(() => {
+                drawModelsComparisonChart();
+            }, 500);
+            var sel = document.getElementById('dailyModelSelect');
+            if (sel) {
+                updateModelAccuracyBox();
+                sel.addEventListener('change', updateModelAccuracyBox);
+            }
         });
 
         const form = document.getElementById('predictForm');
@@ -582,91 +742,53 @@
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-
-            const year = document.getElementById('year').value;
-            const month = document.getElementById('month').value;
-            const monthName = document.getElementById('month').options[document.getElementById('month').selectedIndex].text;
-            const modelType = document.getElementById('modelSelect').value;
+            var dateInput = document.getElementById('predictDate');
+            if (!dateInput) return;
+            var dateStr = dateInput.value;
+            var parts = dateStr.split('-');
+            var year = parts[0], month = parts[1], day = parts[2];
 
             loading.style.display = 'block';
             result.classList.remove('show');
+            result.innerHTML = '';
+            result.appendChild(resultTitle);
+            result.appendChild(resultValue);
 
             try {
                 const formData = new FormData();
+                formData.append('mode', 'daily');
                 formData.append('year', year);
                 formData.append('month', month);
-                formData.append('model_type', modelType);
+                formData.append('day', day);
+                const modelSelect = document.getElementById('dailyModelSelect');
+                if (modelSelect) {
+                    formData.append('model_type', modelSelect.value);
+                }
                 formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
 
-                const response = await fetch('/predict/', {
-                    method: 'POST',
-                    body: formData
-                });
-
+                const response = await fetch('/predict/', { method: 'POST', body: formData });
                 const data = await response.json();
                 loading.style.display = 'none';
 
                 if (data.success) {
-                    resultTitle.textContent = `Dự đoán tháng ${monthName} năm ${year}`;
-                    resultValue.textContent = `${data.rainfall} mm`;
+                    var label = data.date_label || day + '/' + month + '/' + year;
+                    resultTitle.textContent = 'Dự đoán lượng mưa ngày ' + label;
+                    resultValue.textContent = data.rainfall + ' mm/ngày';
                     result.classList.add('show', 'success');
-                    
-                    // Hiển thị thông tin weather nếu có
-                    if (data.weather_info) {
-                        const weatherHtml = `
-                            <div style="margin-top: 15px; padding: 10px; background: #f0f8ff; border-radius: 6px; font-size: 12px;">
-                                <strong>🌤️ Điều kiện thời tiết dự kiến:</strong><br>
-                                Nhiệt độ: ${data.weather_info.temperature}°C | 
-                                Độ ẩm: ${data.weather_info.humidity}% | 
-                                Gió: ${data.weather_info.wind_speed} km/h
-                            </div>
-                        `;
-                        result.insertAdjacentHTML('beforeend', weatherHtml);
+                    if (data.metrics && (data.metrics.mae != null || data.metrics.r2_score != null)) {
+                        var m = data.metrics;
+                        var html = '<div style="margin-top:12px;padding:10px;background:#f0f4ff;border-radius:6px;font-size:12px;">';
+                        if (m.r2_score != null) html += 'R²: ' + (m.r2_score * 100).toFixed(1) + '%';
+                        if (m.mae != null) html += ' | MAE: ' + m.mae + ' mm';
+                        if (m.rmse != null) html += ' | RMSE: ' + m.rmse + ' mm';
+                        html += '</div>';
+                        result.insertAdjacentHTML('beforeend', html);
                     }
-                    
-                    // Hiển thị thông tin mô hình
-                    if (data.model_info) {
-                        const modelHtml = `
-                            <div style="margin-top: 10px; padding: 8px; background: #fff3cd; border-radius: 6px; font-size: 11px;">
-                                <strong>🤖 Mô hình:</strong> ${data.model_info.type} 
-                                (${data.model_info.features} features, ${data.model_info.data_points} điểm dữ liệu)
-                            </div>
-                        `;
-                        result.insertAdjacentHTML('beforeend', modelHtml);
-                    }
-                    
-                    // Vẽ biểu đồ so sánh
-                    if (data.historical_data && data.historical_labels) {
-                        drawComparisonChart(year, month, data.rainfall, data.historical_data, data.historical_labels);
-                    }
-                    
-                    // Hiển thị metrics nếu có
-                    if (data.metrics) {
-                        document.getElementById('mae').textContent = data.metrics.mae !== null ? data.metrics.mae : '-';
-                        document.getElementById('rmse').textContent = data.metrics.rmse !== null ? data.metrics.rmse : '-';
-                        document.getElementById('accuracy').textContent = data.metrics.accuracy_percent !== null ? `${data.metrics.accuracy_percent}%` : '-';
-                        
-                        // Hiển thị thông tin mô hình chi tiết
-                        const modelInfoHtml = `
-                            <div style="margin-top: 10px; padding: 8px; background: #e8f5e8; border-radius: 6px; font-size: 11px;">
-                                <strong>🤖 ${data.metrics.model_type}</strong><br>
-                                <em>${data.metrics.model_description}</em><br>
-                                <strong>Features:</strong> ${data.metrics.features_used.join(', ')}
-                            </div>
-                        `;
-                        result.insertAdjacentHTML('beforeend', modelInfoHtml);
-                        
-                        document.getElementById('metrics').style.display = 'block';
-                    } else {
-                        document.getElementById('metrics').style.display = 'none';
-                    }
-                    // Reload history
+                    document.getElementById('comparisonChartContainer').style.display = 'none';
                     loadHistory();
                 } else {
-                    resultTitle.textContent = 'Lỗi: ' + data.error;
+                    resultTitle.textContent = 'Lỗi: ' + (data.error || 'Không xác định');
                     result.classList.add('show', 'error');
-                    document.getElementById('metrics').style.display = 'none';
-                    document.getElementById('comparisonChartContainer').style.display = 'none';
                 }
             } catch (error) {
                 loading.style.display = 'none';
