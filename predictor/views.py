@@ -18,8 +18,118 @@ import matplotlib.pyplot as plt
 # Thêm DuBao vào path để import modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'DuBao'))
 
-from src.predict import predict_rainfall
+from src.predict import predict_rainfall, predict_rainfall_daily
 from .models import RainfallPrediction
+
+# Cấu hình đường dẫn mô hình và metrics
+MODEL_CONFIG = {
+    'gradient_boosting_weather': {
+        'path': 'rainfall_model.pkl',
+        'name': 'Gradient Boosting với Weather Data',
+        'description': 'Sử dụng nhiệt độ, độ ẩm, gió làm features để dự đoán lượng mưa',
+    },
+    'random_forest_weather': {
+        'path': 'rainfall_model_rf.pkl',
+        'name': 'Random Forest với Weather Data',
+        'description': 'Sử dụng Random Forest với tất cả weather features',
+    },
+    'sarimax': {
+        'path': 'sarimax_model.pkl',
+        'name': 'SARIMA (Seasonal Average)',
+        'description': 'Dùng trung bình theo mùa cho từng tháng từ dữ liệu lịch sử',
+    },
+}
+
+def _get_model_metrics_from_pickle(model_path, avg_rainfall=180):
+    """Đọc metrics từ file pickle. Trả về dict với mae, rmse, r2_score, accuracy_percent."""
+    result = {'mae': None, 'rmse': None, 'r2_score': None, 'accuracy_percent': None}
+    if not os.path.exists(model_path):
+        return result
+    try:
+        with open(model_path, 'rb') as f:
+            data = pickle.load(f)
+        m = data.get('metrics') if isinstance(data, dict) else {}
+        result['mae'] = round(float(m.get('mae', 0)), 2) if m.get('mae') is not None else None
+        result['rmse'] = round(float(m.get('rmse', 0)), 2) if m.get('rmse') is not None else None
+        r2 = m.get('r2_score')
+        if r2 is not None:
+            result['r2_score'] = round(float(r2), 4)
+            result['accuracy_percent'] = round(max(0, min(100, float(r2) * 100)), 1)
+        elif result['mae'] is not None and avg_rainfall and avg_rainfall > 0:
+            result['accuracy_percent'] = round(max(0, 100 - (result['mae'] / avg_rainfall) * 100), 1)
+    except Exception as e:
+        print(f"Error loading metrics from {model_path}: {e}")
+    return result
+
+
+def _get_daily_metrics(project_base_path):
+    """Đọc metrics cho các mô hình theo ngày từ model_metrics.json."""
+    path = os.path.join(project_base_path, 'DuBao', 'models', 'model_metrics.json')
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        # Return all daily metrics
+        return {k: v for k, v in data.items() if k.startswith('daily_')}
+    except Exception:
+        return {}
+
+
+def _load_fallback_metrics(project_base_path):
+    """Đọc metrics dự phòng từ file JSON khi pickle không có."""
+    path = os.path.join(project_base_path, 'DuBao', 'models', 'model_metrics.json')
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error loading model_metrics.json: {e}")
+        return {}
+
+
+def get_all_models_metrics(project_base_path, avg_rainfall=180):
+    """Trả về dict metrics cho tất cả mô hình. Ưu tiên từ pickle, không có thì lấy từ model_metrics.json."""
+    fallback = _load_fallback_metrics(project_base_path)
+    out = {}
+    for key, cfg in MODEL_CONFIG.items():
+        path = os.path.join(project_base_path, 'DuBao', 'models', cfg['path'])
+        m = _get_model_metrics_from_pickle(path, avg_rainfall)
+        # Nếu pickle không có số liệu thì dùng từ JSON
+        fb = fallback.get(key, {})
+        if m['mae'] is None and fb:
+            m['mae'] = round(float(fb.get('mae', 0)), 2) if fb.get('mae') is not None else None
+        if m['rmse'] is None and fb:
+            m['rmse'] = round(float(fb.get('rmse', 0)), 2) if fb.get('rmse') is not None else None
+        if m['r2_score'] is None and fb.get('r2_score') is not None:
+            m['r2_score'] = round(float(fb['r2_score']), 4)
+        if m['accuracy_percent'] is None and fb.get('accuracy_percent') is not None:
+            m['accuracy_percent'] = round(float(fb['accuracy_percent']), 1)
+        elif m['accuracy_percent'] is None and m['r2_score'] is not None:
+            m['accuracy_percent'] = round(max(0, min(100, m['r2_score'] * 100)), 1)
+        out[key] = {
+            'name': cfg['name'],
+            'description': cfg['description'],
+            'mae': m['mae'],
+            'rmse': m['rmse'],
+            'r2_score': m['r2_score'],
+            'accuracy_percent': m['accuracy_percent'],
+        }
+
+    # Add daily models
+    daily_models = _get_daily_metrics(project_base_path)
+    for key, metrics in daily_models.items():
+        out[key] = {
+            'name': key.replace('daily_', '').replace('_', ' ').title(),
+            'description': f'Mô hình {key.replace("daily_", "").replace("_", " ").title()} cho dự đoán theo ngày.',
+            'mae': metrics.get('mae'),
+            'rmse': metrics.get('rmse'),
+            'r2_score': metrics.get('r2_score'),
+            'accuracy_percent': metrics.get('accuracy_percent'),
+        }
+
+    return out
 
 def index(request):
     """Trang chủ - hiển thị thống kê và biểu đồ với weather data"""
@@ -66,11 +176,24 @@ def index(request):
         'training_period': '1979-2022'
     }
     
+    # Metrics độ chính xác cho từng mô hình (để hiển thị khi chọn mô hình)
+    project_base = os.path.join(os.path.dirname(__file__), '..')
+    avg_rainfall = float(df['rainfall'].mean()) if len(df) else 180
+    models_metrics = get_all_models_metrics(project_base, avg_rainfall)
+    
+    # Dữ liệu / mô hình theo ngày
+    daily_combined_path = os.path.join(os.path.dirname(__file__), '..', 'DuBao', 'data', 'daily_combined.csv')
+    daily_model_path = os.path.join(os.path.dirname(__file__), '..', 'DuBao', 'models', 'daily_rainfall_model.pkl')
+    daily_data_available = os.path.exists(daily_combined_path)
+    daily_model_available = os.path.exists(daily_model_path)
+
     # Get historical predictions
     recent_predictions = RainfallPrediction.objects.all()[:10] if request.user.is_authenticated else []
-    
+
     context = {
         'total_records': len(df),
+        'daily_data_available': daily_data_available,
+        'daily_model_available': daily_model_available,
         'start_date': '01/01/1979',
         'end_date': '31/12/2022',
         'avg_rainfall': round(df['rainfall'].mean(), 2),
@@ -85,22 +208,78 @@ def index(request):
         'monthly_avg': monthly_avg,
         'recent_predictions': recent_predictions,
         'model_info': model_info,
-        'has_weather_data': True
+        'has_weather_data': True,
+        'models_metrics': models_metrics,
+        'models_metrics_json': json.dumps(models_metrics),
     }
     
     return render(request, 'predictor/index.html', context)
 
 @csrf_exempt
 def predict(request):
-    """API dự đoán lượng mưa với lựa chọn mô hình"""
+    """API dự đoán lượng mưa: theo ngày (mode=daily) hoặc theo tháng."""
     if request.method == 'POST':
         try:
             data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+            mode_daily = data.get('mode') == 'daily' or data.get('day') not in (None, '')
+
+            if mode_daily:
+                # ---------- Dự đoán theo NGÀY ----------
+                year = int(data.get('year'))
+                month = int(data.get('month'))
+                day = int(data.get('day', 1))
+                model_type = data.get('model_type', 'daily_gradient_boosting')  # Default to gradient boosting
+
+                if not (1979 <= year <= 2100) or not (1 <= month <= 12) or not (1 <= day <= 31):
+                    return JsonResponse({'success': False, 'error': 'Năm/tháng/ngày không hợp lệ.'})
+                project_base = os.path.join(os.path.dirname(__file__), '..')
+
+                # Chọn mô hình daily dựa trên model_type
+                if model_type == 'daily_gradient_boosting':
+                    daily_model_path = os.path.join(project_base, 'DuBao', 'models', 'daily_gradient_boosting_model.pkl')
+                    model_name = "Daily Gradient Boosting"
+                elif model_type == 'daily_random_forest':
+                    daily_model_path = os.path.join(project_base, 'DuBao', 'models', 'daily_random_forest_model.pkl')
+                    model_name = "Daily Random Forest"
+                elif model_type == 'daily_xgboost':
+                    daily_model_path = os.path.join(project_base, 'DuBao', 'models', 'daily_xgboost_model.pkl')
+                    model_name = "Daily XGBoost"
+                elif model_type == 'daily_xgb_tuned':
+                    daily_model_path = os.path.join(project_base, 'DuBao', 'models', 'daily_xgb_tuned_model.pkl')
+                    model_name = "Daily XGBoost Tuned"
+                elif model_type == 'daily_stacking':
+                    daily_model_path = os.path.join(project_base, 'DuBao', 'models', 'daily_stacking_model.pkl')
+                    model_name = "Daily Stacking Ensemble"
+                else:
+                    return JsonResponse({'success': False, 'error': 'Mô hình daily không hợp lệ.'})
+
+                daily_data_path = os.path.join(project_base, 'DuBao', 'data', 'daily_combined.csv')
+                if not os.path.exists(daily_model_path):
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Chưa có mô hình {model_name}. Chạy: cd DuBao && python run_pipeline.py'
+                    })
+                prediction = predict_rainfall_daily(daily_model_path, year, month, day, daily_data_path)
+                if request.user.is_authenticated:
+                    RainfallPrediction.objects.create(
+                        user=request.user, year=year, month=month, day=day,
+                        predicted_rainfall=prediction, historical_avg=None
+                    )
+                return JsonResponse({
+                    'success': True,
+                    'mode': 'daily',
+                    'year': year, 'month': month, 'day': day,
+                    'rainfall': round(prediction, 2),
+                    'date_label': f'{day:02d}/{month:02d}/{year}',
+                    'model_name': model_name,
+                    'metrics': _get_daily_metrics(project_base).get(model_type, {}),
+                })
+                # ---------- Kết thúc nhánh theo ngày ----------
+
             year = int(data.get('year'))
             month = int(data.get('month'))
-            model_type = data.get('model_type', 'gradient_boosting_weather')  # Default: mô hình với weather data
-            
-            # Kiểm tra giá trị hợp lệ
+            model_type = data.get('model_type', 'gradient_boosting_weather')
+
             if not (1979 <= year <= 2100) or not (1 <= month <= 12):
                 return JsonResponse({
                     'success': False,
@@ -175,31 +354,28 @@ def predict(request):
             except Exception as e:
                 print(f"Error loading historical data: {e}")
             
-            # Tính metrics từ mô hình đã lưu
+            # Tính metrics từ mô hình đã lưu (MAE, RMSE, R², % chính xác); không có thì lấy từ model_metrics.json
             metrics = {}
             try:
-                with open(model_path, 'rb') as f:
-                    model_data = pickle.load(f)
-                    if 'metrics' in model_data:
-                        model_metrics = model_data['metrics']
-                        metrics['mae'] = round(model_metrics.get('mae', 0), 2)
-                        metrics['rmse'] = round(model_metrics.get('rmse', 0), 2)
-                        # Tính accuracy percent dựa trên MAE (ước tính)
-                        if model_metrics.get('mae'):
-                            # Giả sử rainfall trung bình khoảng 200mm, tính accuracy
-                            avg_rainfall = 200  # ước tính
-                            metrics['accuracy_percent'] = round(max(0, 100 - (model_metrics['mae'] / avg_rainfall) * 100), 1)
-                        else:
-                            metrics['accuracy_percent'] = None
-                    else:
-                        metrics['mae'] = None
-                        metrics['rmse'] = None
-                        metrics['accuracy_percent'] = None
+                weather_df = pd.read_csv(weather_data_path) if weather_data_path and os.path.exists(weather_data_path) else None
+                avg_rainfall = float(weather_df['rainfall'].mean()) if weather_df is not None and len(weather_df) else 180
+                m = _get_model_metrics_from_pickle(model_path, avg_rainfall)
+                if m['mae'] is None and m['rmse'] is None:
+                    fb = _load_fallback_metrics(os.path.join(os.path.dirname(__file__), '..')).get(model_type, {})
+                    if fb:
+                        m['mae'] = round(float(fb.get('mae', 0)), 2) if fb.get('mae') is not None else None
+                        m['rmse'] = round(float(fb.get('rmse', 0)), 2) if fb.get('rmse') is not None else None
+                        if fb.get('r2_score') is not None:
+                            m['r2_score'] = round(float(fb['r2_score']), 4)
+                        if fb.get('accuracy_percent') is not None:
+                            m['accuracy_percent'] = round(float(fb['accuracy_percent']), 1)
+                metrics['mae'] = m['mae']
+                metrics['rmse'] = m['rmse']
+                metrics['r2_score'] = m['r2_score']
+                metrics['accuracy_percent'] = m['accuracy_percent']
             except Exception as e:
                 print(f"Error loading model metrics: {e}")
-                metrics['mae'] = None
-                metrics['rmse'] = None
-                metrics['accuracy_percent'] = None
+                metrics['mae'] = metrics['rmse'] = metrics['r2_score'] = metrics['accuracy_percent'] = None
 
             metrics['model_type'] = model_name
             metrics['model_description'] = model_description
@@ -310,13 +486,17 @@ def prediction_history(request):
     try:
         if request.user.is_authenticated:
             predictions = RainfallPrediction.objects.filter(user=request.user).values(
-                'year', 'month', 'predicted_rainfall', 'historical_avg', 'created_at'
+                'year', 'month', 'day', 'predicted_rainfall', 'historical_avg', 'created_at'
             )[:50]
             
             data = []
             for pred in predictions:
+                if pred.get('day') is not None:
+                    date_str = f"{pred['day']:02d}/{pred['month']:02d}/{pred['year']}"
+                else:
+                    date_str = f"{pred['month']}/{pred['year']}"
                 data.append({
-                    'date': f"{pred['month']}/{pred['year']}",
+                    'date': date_str,
                     'predicted': round(pred['predicted_rainfall'], 2),
                     'historical_avg': round(pred['historical_avg'], 2) if pred['historical_avg'] else 'N/A',
                     'created': pred['created_at'].strftime('%d/%m/%Y %H:%M') if pred['created_at'] else ''

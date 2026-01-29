@@ -1,0 +1,20 @@
+{
+  "gradient_boosting_weather": {
+    "mae": 102.93,
+    "rmse": 170.45,
+    "r2_score": 0.7277,
+    "accuracy_percent": 72.8
+  },
+  "random_forest_weather": {
+    "mae": 108.03,
+    "rmse": 195.66,
+    "r2_score": 0.6412,
+    "accuracy_percent": 64.1
+  },
+  "sarimax": {
+    "mae": 121.78,
+    "rmse": 223.06,
+    "r2_score": 0.5337,
+    "accuracy_percent": 53.4
+  }
+}
