@@ -120,12 +120,20 @@ python manage.py createsuperuser  # Tạo account admin
 
 ### **1. Chạy Pipeline ML Đầy Đủ** (Từ data → model)
 
-#### Bước 1: Tiền xử lý dữ liệu (chuyển ngày → tháng)
+#### Bước 1 (khuyến nghị): Lấy dữ liệu thời tiết từ API để tăng độ chính xác
 ```bash
 cd DuBao
-python src/preprocess.py
+python run_pipeline.py --fetch
 ```
-📁 Output: `data/monthly_rainfall.csv`
+Pipeline sẽ: gọi Open-Meteo API (nhiệt độ, độ ẩm, gió, **mây che phủ**, **áp suất**) → chuẩn hóa dữ liệu → train & đánh giá mô hình.  
+Hoặc chạy thủ công: `python src/fetch_weather_data.py` rồi `python src/prepare_data.py` rồi `python src/evaluate_all_models.py`.
+
+#### Bước 1b: Chỉ tiền xử lý (ngày → tháng, merge weather)
+```bash
+cd DuBao/src
+python prepare_data.py
+```
+📁 Output: `data/monthly_rainfall.csv`, `data/monthly_combined.csv`
 
 #### Bước 2: Đánh giá và Train mô hình
 ```bash
@@ -162,11 +170,13 @@ python main.py
 ### **2. Chạy Web Application**
 
 ```bash
-# Từ thư mục gốc của project
+# Từ thư mục gốc của project (vd: d:\Du Bao Luong Mua)
 python manage.py runserver
 ```
 
-Mở browser: **http://localhost:8000/**
+Mở browser: **http://127.0.0.1:8000/** hoặc **http://localhost:8000/**
+
+Chi tiết đầy đủ: xem file **RUN.md**.
 
 #### Chức năng trên Web:
 - **Trang chủ**: Xem thống kê, biểu đồ
