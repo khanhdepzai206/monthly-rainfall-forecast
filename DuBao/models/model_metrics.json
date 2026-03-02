@@ -16,5 +16,32 @@
     "rmse": 223.06,
     "r2_score": 0.5337,
     "accuracy_percent": 53.4
+  },
+  "daily_two_stage_gradient_boosting": {
+    "cls_accuracy": 0.7793022344178754,
+    "cls_f1": 0.6792022792022792,
+    "cls_precision": 0.7957276368491322,
+    "cls_recall": 0.5924453280318092,
+    "reg_mae": 17.61094545530293,
+    "reg_rmse": 32.329185342766024,
+    "reg_r2": 0.3597909859764423
+  },
+  "daily_two_stage_random_forest": {
+    "cls_accuracy": 0.782046256370051,
+    "cls_f1": 0.6971677559912854,
+    "cls_precision": 0.7710843373493976,
+    "cls_recall": 0.6361829025844931,
+    "reg_mae": 16.17194962730616,
+    "reg_rmse": 32.319178028661945,
+    "reg_r2": 0.3601872706979897
+  },
+  "daily_two_stage_extra_trees": {
+    "cls_accuracy": 0.7581340650725206,
+    "cls_f1": 0.6508205998868138,
+    "cls_precision": 0.7555847568988173,
+    "cls_recall": 0.5715705765407555,
+    "reg_mae": 15.753483681938858,
+    "reg_rmse": 31.797878928792287,
+    "reg_r2": 0.3806608048434592
   }
 }

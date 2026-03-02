@@ -85,3 +85,23 @@ python evaluate_all_models.py
 | Chạy web | `cd "d:\Du Bao Luong Mua"` rồi `python manage.py runserver` |
 | Cập nhật dữ liệu API + train lại | `cd "d:\Du Bao Luong Mua\DuBao"` rồi `python run_pipeline.py --fetch` |
 | Chỉ train lại (không gọi API) | `cd "d:\Du Bao Luong Mua\DuBao"` rồi `python run_pipeline.py` |
+
+---
+
+## 🆕 Tính năng Mới: So Sánh 3 Mô Hình
+
+**LÀM GÌ**: So sánh dự đoán lượng mưa từ **3 mô hình** (GradientBoosting, RandomForest, XGBoost).
+
+### Cách sử dụng:
+1. Chạy: `python manage.py runserver`
+2. Mở: http://127.0.0.1:8000/predict
+3. Tìm: "⚔️ So Sánh 3 Mô Hình"
+4. Nhập Năm, Tháng, Ngày
+5. Click "So Sánh Mô Hình"
+
+### Kiểm tra: `python verify_feature.py`
+
+### Tài liệu:
+- [QUICK_START.md](QUICK_START.md)
+- [MODEL_COMPARISON_GUIDE.md](MODEL_COMPARISON_GUIDE.md)
+- [FEATURE_COMPLETE.md](FEATURE_COMPLETE.md)

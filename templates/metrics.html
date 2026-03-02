@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Metrics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .navbar {
+            background: rgba(255,255,255,0.95);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 40px;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .table {
+            background: white;
+        }
+        .table th {
+            background: #667eea;
+            color: white;
+            border: none;
+        }
+        h1, h2 {
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        .spinner-border {
+            color: white;
+        }
+        .rating-excellent { color: #28a745; }
+        .rating-good { color: #ffc107; }
+        .rating-fair { color: #fd7e14; }
+        .rating-poor { color: #dc3545; }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">🌧️ Rainfall Prediction</a>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Trang Chủ</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/metrics">Metrics</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/predict">Dự Đoán</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1 class="mb-5">📊 Độ Chính Xác Của Các Mô Hình</h1>
+
+        <!-- Loading -->
+        <div id="loading" class="text-center" style="color: white;">
+            <div class="spinner-border" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+            <p class="mt-3">Đang tải thông tin mô hình...</p>
+        </div>
+
+        <!-- Content -->
+        <div id="content" style="display:none;">
+            <!-- Classifier -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h2>🎯 Classifier (Dự đoán: Có mưa hay không?)</h2>
+                    <div class="card p-4">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Mô hình</th>
+                                        <th>Accuracy</th>
+                                        <th>Precision</th>
+                                        <th>Recall</th>
+                                        <th>F1-Score</th>
+                                        <th>Đánh giá</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="classifier-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Regressor -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h2>📈 Regressor (Dự đoán: Lượng mưa?)</h2>
+                    <div class="card p-4">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Mô hình</th>
+                                        <th>MAE (mm)</th>
+                                        <th>RMSE (mm)</th>
+                                        <th>R²</th>
+                                        <th>MAPE (%)</th>
+                                        <th>Đánh giá</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="regressor-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Best Models -->
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <div class="card p-4">
+                        <h3>🏆 Classifier Tốt Nhất</h3>
+                        <hr>
+                        <div class="metric-value" id="best-classifier">-</div>
+                        <p id="best-classifier-score">-</p>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="card p-4">
+                        <h3>🏆 Regressor Tốt Nhất</h3>
+                        <hr>
+                        <div class="metric-value" id="best-regressor">-</div>
+                        <p id="best-regressor-score">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test Info -->
+            <div class="row mt-4">
+                <div class="col-md-12">
+                    <div class="card p-4" style="background: #f8f9fa;">
+                        <h4>ℹ️ Thông Tin Test Set</h4>
+                        <ul>
+                            <li>Tổng mẫu test: <strong id="test-count">-</strong></li>
+                            <li>Ngày có mưa: <strong id="rain-count">-</strong> (<span id="rain-ratio">-</span>)</li>
+                            <li>Ngày không mưa: <strong id="no-rain-count">-</strong></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', loadMetrics);
+
+        function loadMetrics() {
+            fetch('/api/model-metrics')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        displayMetrics(data);
+                    }
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('content').style.display = 'block';
+                });
+        }
+
+        function displayMetrics(data) {
+            // Classifier
+            const classifierBody = document.getElementById('classifier-body');
+            let bestClassifier = null, bestF1 = -1;
+
+            for (const [name, metrics] of Object.entries(data.classifier)) {
+                const f1 = metrics.f1 || 0;
+                if (f1 > bestF1) { bestF1 = f1; bestClassifier = name; }
+
+                const row = `<tr>
+                    <td><strong>${name}</strong></td>
+                    <td>${(metrics.accuracy * 100).toFixed(1)}%</td>
+                    <td>${(metrics.precision * 100).toFixed(1)}%</td>
+                    <td>${(metrics.recall * 100).toFixed(1)}%</td>
+                    <td>${f1.toFixed(4)}</td>
+                    <td>${getRating(f1)}</td>
+                </tr>`;
+                classifierBody.innerHTML += row;
+            }
+
+            document.getElementById('best-classifier').textContent = bestClassifier;
+            document.getElementById('best-classifier-score').textContent = `F1-Score: ${bestF1.toFixed(4)}`;
+
+            // Regressor
+            const regressorBody = document.getElementById('regressor-body');
+            let bestRegressor = null, bestR2 = -1;
+
+            for (const [name, metrics] of Object.entries(data.regressor)) {
+                const r2 = metrics.r2 || 0;
+                if (r2 > bestR2) { bestR2 = r2; bestRegressor = name; }
+
+                const row = `<tr>
+                    <td><strong>${name}</strong></td>
+                    <td>${metrics.mae.toFixed(2)}</td>
+                    <td>${metrics.rmse.toFixed(2)}</td>
+                    <td>${r2.toFixed(4)}</td>
+                    <td>${metrics.mape.toFixed(2)}</td>
+                    <td>${getRatingRegressor(r2)}</td>
+                </tr>`;
+                regressorBody.innerHTML += row;
+            }
+
+            document.getElementById('best-regressor').textContent = bestRegressor;
+            document.getElementById('best-regressor-score').textContent = `R²: ${bestR2.toFixed(4)}`;
+
+            // Test info
+            const info = data.test_set_info;
+            document.getElementById('test-count').textContent = info.test_count;
+            document.getElementById('rain-count').textContent = info.rain_count;
+            document.getElementById('no-rain-count').textContent = info.no_rain_count;
+            document.getElementById('rain-ratio').textContent = ((info.rain_count / info.test_count * 100).toFixed(1)) + '%';
+        }
+
+        function getRating(score) {
+            if (score >= 0.85) return '<span class="rating-excellent">⭐⭐⭐⭐⭐ Xuất sắc</span>';
+            if (score >= 0.75) return '<span class="rating-excellent">⭐⭐⭐⭐ Rất tốt</span>';
+            if (score >= 0.65) return '<span class="rating-good">⭐⭐⭐ Tốt</span>';
+            return '<span class="rating-fair">⭐⭐ Chấp nhận</span>';
+        }
+
+        function getRatingRegressor(r2) {
+            if (r2 >= 0.85) return '<span class="rating-excellent">⭐⭐⭐⭐⭐ Xuất sắc</span>';
+            if (r2 >= 0.75) return '<span class="rating-excellent">⭐⭐⭐⭐ Rất tốt</span>';
+            if (r2 >= 0.65) return '<span class="rating-good">⭐⭐⭐ Tốt</span>';
+            return '<span class="rating-fair">⭐⭐ Chấp nhận</span>';
+        }
+    </script>
+</body>
+</html>
