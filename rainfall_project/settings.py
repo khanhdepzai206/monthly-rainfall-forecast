@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-amk=pdf32+v$-)4+z2qo)^mw_s9c=l60prqx6=odx8!yhcded2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', 'testserver']
 
 
 # Application definition
@@ -55,7 +55,7 @@ ROOT_URLCONF = 'rainfall_project.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],  # allow loading root-level templates (shared with Flask)
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
