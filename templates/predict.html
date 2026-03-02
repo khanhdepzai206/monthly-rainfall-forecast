@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dự Đoán Lượng Mưa</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .navbar {
+            background: rgba(255,255,255,0.95);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 40px;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        .form-control, .btn-primary {
+            border-radius: 10px;
+        }
+        .result-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 30px;
+        }
+        .result-value {
+            font-size: 36px;
+            font-weight: bold;
+        }
+        .result-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .alert {
+            border-radius: 10px;
+        }
+        .table {
+            background: white;
+        }
+        .table th {
+            background: #667eea;
+            color: white;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">🌧️ Rainfall Prediction</a>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Trang Chủ</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/metrics">Metrics</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/predict">Dự Đoán</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1 class="mb-5">🌧️ Dự Đoán Lượng Mưa Theo Ngày</h1>
+
+        <!-- Single Day Prediction -->
+        <div class="row mb-5">
+            <div class="col-md-6">
+                <div class="card p-4">
+                    <h3>🔮 Dự Đoán Một Ngày</h3>
+                    <hr>
+                    <form id="single-form">
+                        <div class="mb-3">
+                            <label class="form-label">Năm</label>
+                            <input type="number" class="form-control" id="year" min="1979" max="2100" value="2024" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Tháng</label>
+                            <select class="form-select" id="month" required>
+                                <option value="">-- Chọn tháng --</option>
+                                <option value="1">Tháng 1</option>
+                                <option value="2">Tháng 2</option>
+                                <option value="3">Tháng 3</option>
+                                <option value="4">Tháng 4</option>
+                                <option value="5">Tháng 5</option>
+                                <option value="6">Tháng 6</option>
+                                <option value="7">Tháng 7</option>
+                                <option value="8">Tháng 8</option>
+                                <option value="9">Tháng 9</option>
+                                <option value="10">Tháng 10</option>
+                                <option value="11">Tháng 11</option>
+                                <option value="12">Tháng 12</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Ngày</label>
+                            <input type="number" class="form-control" id="day" min="1" max="31" value="15" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Dự Đoán</button>
+                    </form>
+                    <div id="single-result"></div>
+                </div>
+            </div>
+
+            <!-- Result -->
+            <div class="col-md-6">
+                <div id="single-output" style="display:none;">
+                    <div class="result-card">
+                        <div class="mb-4">
+                            <div class="result-label">Ngày dự đoán</div>
+                            <div class="result-value" id="predicted-date">-</div>
+                        </div>
+
+                        <hr style="opacity: 0.5;">
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="result-label">Khả năng mưa</div>
+                                <div class="result-value" id="rain-probability">-</div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="result-label">Tình trạng</div>
+                                <div class="result-value" id="rain-status" style="font-size: 28px;">-</div>
+                            </div>
+                        </div>
+
+                        <hr style="opacity: 0.5;">
+
+                        <div>
+                            <div class="result-label">Dự đoán lượng mưa (nếu có)</div>
+                            <div class="result-value" id="predicted-rainfall">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3-Model Comparison -->
+        <div class="row mb-5">
+            <div class="col-md-12">
+                <div class="card p-4">
+                    <h3>⚔️ So Sánh 3 Mô Hình</h3>
+                    <p class="text-muted mb-3">So sánh dự đoán từ 3 mô hình 2 giai đoạn: Gradient Boosting, Random Forest, Extra Trees</p>
+                    <hr>
+                    <form id="compare-form">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label class="form-label">Năm</label>
+                                <input type="number" class="form-control" id="compare-year" min="1979" max="2100" value="2024" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Tháng</label>
+                                <select class="form-select" id="compare-month" required>
+                                    <option value="">-- Chọn tháng --</option>
+                                    <option value="1">Tháng 1</option>
+                                    <option value="2">Tháng 2</option>
+                                    <option value="3">Tháng 3</option>
+                                    <option value="4">Tháng 4</option>
+                                    <option value="5">Tháng 5</option>
+                                    <option value="6">Tháng 6</option>
+                                    <option value="7">Tháng 7</option>
+                                    <option value="8">Tháng 8</option>
+                                    <option value="9">Tháng 9</option>
+                                    <option value="10">Tháng 10</option>
+                                    <option value="11">Tháng 11</option>
+                                    <option value="12">Tháng 12</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Ngày</label>
+                                <input type="number" class="form-control" id="compare-day" min="1" max="31" value="15" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 mt-3">So Sánh Mô Hình</button>
+                    </form>
+
+                    <!-- Comparison Results -->
+                    <div id="compare-output" style="display:none; margin-top: 30px;">
+                        <div class="alert alert-info">
+                            <strong>Ngày dự đoán:</strong> <span id="compare-date">-</span>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover table-bordered">
+                                <thead>
+                                    <tr style="background: #667eea; color: white;">
+                                        <th style="width: 20%;">Mô Hình</th>
+                                        <th style="width: 12%;">Có Mưa</th>
+                                        <th style="width: 15%;">Xác Suất (%)</th>
+                                        <th style="width: 18%;">Lượng Mưa (mm)</th>
+                                        <th style="width: 12%;">MAE</th>
+                                        <th style="width: 12%;">RMSE</th>
+                                        <th style="width: 11%;">R² Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="compare-models-body">
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Biểu đồ so sánh độ chính xác 3 mô hình -->
+                        <div class="mt-4">
+                            <h5>📊 Biểu đồ so sánh độ chính xác</h5>
+                            <canvas id="modelsChart" height="120" style="max-height: 250px;"></canvas>
+                        </div>
+
+                        <!-- Consensus Section -->
+                        <div class="alert alert-success mt-4">
+                            <h5>📊 Kết Quả Đồng Thuận</h5>
+                            <div class="row mt-3">
+                                <div class="col-md-3">
+                                    <strong>Có Mưa:</strong> <span id="consensus-rain">-</span>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Xác Suất Trung Bình:</strong> <span id="consensus-prob">-</span>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Lượng Mưa TB:</strong> <span id="consensus-rainfall">-</span>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Sự Thống Nhất:</strong> <span id="consensus-count">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Range Prediction -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card p-4">
+                    <h3>📅 Dự Đoán Nhiều Ngày</h3>
+                    <hr>
+                    <form id="range-form">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label class="form-label">Năm bắt đầu</label>
+                                <input type="number" class="form-control" id="range-year" min="1979" max="2100" value="2024" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Tháng bắt đầu</label>
+                                <select class="form-select" id="range-month" required>
+                                    <option value="1" selected>Tháng 1</option>
+                                    <option value="2">Tháng 2</option>
+                                    <option value="3">Tháng 3</option>
+                                    <option value="4">Tháng 4</option>
+                                    <option value="5">Tháng 5</option>
+                                    <option value="6">Tháng 6</option>
+                                    <option value="7">Tháng 7</option>
+                                    <option value="8">Tháng 8</option>
+                                    <option value="9">Tháng 9</option>
+                                    <option value="10">Tháng 10</option>
+                                    <option value="11">Tháng 11</option>
+                                    <option value="12">Tháng 12</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Ngày bắt đầu</label>
+                                <input type="number" class="form-control" id="range-day" min="1" max="31" value="1" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Số ngày</label>
+                                <input type="number" class="form-control" id="num-days" min="1" max="365" value="30" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 mt-3">Dự Đoán Khoảng</button>
+                    </form>
+                </div>
+
+                <!-- Range Result -->
+                <div id="range-output" style="display:none; margin-top: 30px;">
+                    <div class="card p-4">
+                        <h4>Kết Quả Dự Đoán</h4>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="range-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ngày</th>
+                                        <th>Mưa?</th>
+                                        <th>Xác Suất (%)</th>
+                                        <th>Lượng Mưa (mm)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="range-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        // Single day prediction
+        document.getElementById('single-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const year = document.getElementById('year').value;
+            const month = document.getElementById('month').value;
+            const day = document.getElementById('day').value;
+
+            try {
+                const response = await fetch('/api/predict/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ year: parseInt(year), month: parseInt(month), day: parseInt(day) })
+                });
+
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    throw new Error(response.ok ? 'Lỗi đọc dữ liệu' : 'Lỗi server (500). Kiểm tra console.');
+                }
+                console.log('API Response:', data);
+                displaySingleResult(data, `${day}/${month}/${year}`);
+            } catch (error) {
+                console.error('Fetch error:', error);
+                alert('Lỗi: ' + error.message);
+            }
+        });
+
+        function displaySingleResult(data, dateStr) {
+            if (data.success) {
+                const d = data.data || data;
+                const has_rain = d.has_rain;
+                const prob = ((d.rain_probability || 0) * 100).toFixed(1);
+                const rainfall = (d.predicted_rainfall || 0).toFixed(2);
+
+                document.getElementById('predicted-date').textContent = dateStr;
+                document.getElementById('rain-probability').textContent = prob + '%';
+                document.getElementById('rain-status').textContent = has_rain ? '☔ Có mưa' : '☀️ Không mưa';
+                document.getElementById('predicted-rainfall').textContent = rainfall + ' mm';
+
+                document.getElementById('single-output').style.display = 'block';
+            } else {
+                console.error('API Error:', data);
+                alert('Lỗi: ' + (data.error || 'Không thể dự đoán'));
+            }
+        }
+
+        // 3-Model Comparison
+        document.getElementById('compare-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const year = document.getElementById('compare-year').value;
+            const month = document.getElementById('compare-month').value;
+            const day = document.getElementById('compare-day').value;
+
+            try {
+                const response = await fetch('/api/predict-compare/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ year: parseInt(year), month: parseInt(month), day: parseInt(day) })
+                });
+
+                const data = await response.json();
+                console.log('Compare API Response:', data);
+                if (data.success) {
+                    displayComparisonResult(data);
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Không thể so sánh'));
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                alert('Lỗi: ' + error.message);
+            }
+        });
+
+        function displayComparisonResult(data) {
+            if (!data.models || data.models.length === 0) {
+                alert('Không có dữ liệu dự đoán');
+                return;
+            }
+
+            // Display date
+            document.getElementById('compare-date').textContent = data.date;
+
+            // Display models results
+            const tbody = document.getElementById('compare-models-body');
+            tbody.innerHTML = '';
+
+            const modelColors = {
+                'Gradient Boosting': '#667eea',
+                'Random Forest': '#48bb78',
+                'Extra Trees': '#f6ad55'
+            };
+
+            // Vẽ biểu đồ so sánh
+            if (typeof Chart !== 'undefined' && data.chart_data) {
+                const cd = data.chart_data;
+                const ctx = document.getElementById('modelsChart');
+                if (ctx) {
+                    if (window.modelsChartInstance) window.modelsChartInstance.destroy();
+                    window.modelsChartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: cd.labels || data.models.map(m => m.model),
+                            datasets: [
+                                { label: 'Độ chính xác phân loại (%)', data: cd.cls_accuracy || [], backgroundColor: 'rgba(102, 126, 234, 0.7)' },
+                                { label: 'F1 Score (%)', data: cd.cls_f1 || [], backgroundColor: 'rgba(72, 187, 120, 0.7)' },
+                                { label: 'R² hồi quy (%)', data: cd.reg_r2 || [], backgroundColor: 'rgba(246, 173, 85, 0.7)' }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: { y: { beginAtZero: true, max: 100 } },
+                            plugins: { legend: { position: 'top' } }
+                        }
+                    });
+                }
+            }
+
+            data.models.forEach(model => {
+                const prob = (model.rain_probability * 100).toFixed(1);
+                const rainfall = model.predicted_rainfall.toFixed(2);
+                const mae = model.mae.toFixed(4);
+                const rmse = model.rmse.toFixed(4);
+                const r2 = model.r2_score.toFixed(4);
+                const status = model.has_rain ? '☔ Có mưa' : '☀️ Không có mưa';
+                const modelColor = modelColors[model.model] || '#999';
+
+                const row = `<tr>
+                    <td><strong style="color: ${modelColor}">● ${model.model}</strong></td>
+                    <td>${status}</td>
+                    <td>${prob}%</td>
+                    <td>${rainfall}</td>
+                    <td>${mae}</td>
+                    <td>${rmse}</td>
+                    <td>${r2}</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+
+            // Display consensus
+            if (data.consensus) {
+                const consensusRain = data.consensus.has_rain ? '☔ Có mưa' : '☀️ Không mưa';
+                const consensusProb = (data.consensus.avg_rain_probability * 100).toFixed(1);
+                const consensusRainfall = data.consensus.avg_rainfall.toFixed(2);
+                const consensusCount = data.consensus.agreement_count;
+
+                document.getElementById('consensus-rain').textContent = consensusRain;
+                document.getElementById('consensus-prob').textContent = consensusProb + '%';
+                document.getElementById('consensus-rainfall').textContent = consensusRainfall + ' mm';
+                document.getElementById('consensus-count').textContent = `${consensusCount}/3 mô hình đồng ý`;
+            }
+
+            document.getElementById('compare-output').style.display = 'block';
+        }
+
+        // Range prediction
+        document.getElementById('range-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const year = document.getElementById('range-year').value;
+            const month = document.getElementById('range-month').value;
+            const day = document.getElementById('range-day').value;
+            const num_days = document.getElementById('num-days').value;
+
+            const response = await fetch(`/api/predict-range/?year=${year}&month=${month}&day=${day}&num_days=${num_days}`);
+            if (!response.ok) {
+                let msg = `HTTP ${response.status}`;
+                try {
+                    const err = await response.json();
+                    msg = err.message || msg;
+                } catch (_){ }
+                alert('Lỗi: ' + msg);
+                return;
+            }
+            const data = await response.json();
+            displayRangeResult(data);
+        });
+
+        function displayRangeResult(data) {
+            const preds = data.data || data.predictions || [];
+            if (data.success && preds.length > 0) {
+                const tbody = document.getElementById('range-body');
+                tbody.innerHTML = '';
+
+                let rainDays = 0;
+                let totalRainfall = 0;
+
+                preds.forEach(pred => {
+                    const prob = (pred.rain_probability * 100).toFixed(1);
+                    const rainfall = pred.predicted_rainfall.toFixed(2);
+                    const status = pred.has_rain ? '☔' : '☀️';
+
+                    if (pred.has_rain) {
+                        rainDays++;
+                        totalRainfall += parseFloat(rainfall);
+                    }
+
+                    const row = `<tr>
+                        <td>${pred.date}</td>
+                        <td>${status}</td>
+                        <td>${prob}%</td>
+                        <td>${rainfall} mm</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+
+                document.getElementById('range-output').style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

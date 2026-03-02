@@ -194,72 +194,74 @@ def predict_rainfall(model_path, year, month, weather_data_path=None):
     return max(0, prediction)  # Không âm
 
 
-def _daily_features_from_history(daily_data_path, date_obj, feature_cols, base_year=1979):
-    """Tạo dict feature cho một ngày từ daily_combined (lags từ lịch sử hoặc TB theo ngày trong năm)."""
+def _build_daily_features_for_date(date_obj, daily_data_path, feature_cols, base_year=1979):
+    """Tạo đầy đủ features cho 1 ngày (tương thích với train_daily_two_stage.build_features)."""
     from datetime import timedelta
+    doy = date_obj.timetuple().tm_yday
     row = {
         "year": date_obj.year,
         "month": date_obj.month,
         "day": date_obj.day,
-        "day_of_year": date_obj.timetuple().tm_yday,
-        "doy_sin": np.sin(2 * np.pi * date_obj.timetuple().tm_yday / 365),
-        "doy_cos": np.cos(2 * np.pi * date_obj.timetuple().tm_yday / 365),
-        "trend": (date_obj.year - base_year) * 365 + date_obj.timetuple().tm_yday,
+        "day_of_year": doy,
+        "doy_sin": np.sin(2 * np.pi * doy / 365),
+        "doy_cos": np.cos(2 * np.pi * doy / 365),
+        "month_sin": np.sin(2 * np.pi * date_obj.month / 12),
+        "month_cos": np.cos(2 * np.pi * date_obj.month / 12),
+        "trend": (date_obj.year - base_year) * 365 + doy,
     }
-    row["rainfall_lag_1"] = row["rainfall_lag_7"] = row["rainfall_lag_30"] = row["rainfall_ma_7"] = 0.0
-    row["temp_lag_1"] = row["temp_ma_7"] = row["humidity_lag_1"] = row["wind_lag_1"] = 0.0
-    if not daily_data_path:
-        for c in feature_cols:
-            if c not in row:
-                row[c] = 0
-        return row
-    try:
-        df = pd.read_csv(daily_data_path)
-        df["date"] = pd.to_datetime(df["date"]).dt.normalize()
-        df = df.sort_values("date")
-        day_mean = df.groupby(df["date"].dt.dayofyear)["rainfall"].mean()
-        doy = date_obj.timetuple().tm_yday
-        default_rain = float(day_mean.loc[doy]) if doy in day_mean.index else float(df["rainfall"].mean())
-        row["rainfall_lag_1"] = row["rainfall_lag_7"] = row["rainfall_lag_30"] = row["rainfall_ma_7"] = default_rain
-        for d in [1, 7, 30]:
-            prev = date_obj - timedelta(days=d)
-            p = df[df["date"] == pd.Timestamp(prev)]
-            if len(p) > 0:
-                if d == 1:
-                    row["rainfall_lag_1"] = float(p["rainfall"].iloc[0])
-                elif d == 7:
-                    row["rainfall_lag_7"] = float(p["rainfall"].iloc[0])
-                else:
-                    row["rainfall_lag_30"] = float(p["rainfall"].iloc[0])
-        last7 = df[df["date"] < pd.Timestamp(date_obj)].tail(7)
-        if len(last7) >= 2:
-            row["rainfall_ma_7"] = float(last7["rainfall"].mean())
-        if "temperature" in df.columns:
-            t_avg = df.groupby(df["date"].dt.dayofyear)["temperature"].mean()
-            row["temp_lag_1"] = row["temp_ma_7"] = float(t_avg.loc[doy]) if doy in t_avg.index else float(df["temperature"].mean())
-            p1 = df[df["date"] == pd.Timestamp(date_obj - timedelta(days=1))]
-            if len(p1) > 0:
-                row["temp_lag_1"] = float(p1["temperature"].iloc[0])
-        if "humidity" in df.columns:
-            h_avg = df.groupby(df["date"].dt.dayofyear)["humidity"].mean()
-            row["humidity_lag_1"] = float(h_avg.loc[doy]) if doy in h_avg.index else float(df["humidity"].mean())
-        if "wind_speed" in df.columns:
-            w_avg = df.groupby(df["date"].dt.dayofyear)["wind_speed"].mean()
-            row["wind_lag_1"] = float(w_avg.loc[doy]) if doy in w_avg.index else float(df["wind_speed"].mean())
-    except Exception:
-        pass
+    for lag in [1, 2, 7, 14, 30]:
+        row[f"rainfall_lag_{lag}"] = 0.0
+    for w in [3, 7, 14]:
+        row[f"rainfall_ma_{w}"] = 0.0
+    for col in ["temperature", "humidity", "wind_speed"]:
+        row[f"{col}_lag_1"] = row[f"{col}_ma_7"] = 0.0
+    row["cloud_cover_lag_1"] = row["surface_pressure_lag_1"] = 0.0
+
+    if daily_data_path and os.path.exists(daily_data_path):
+        try:
+            df = pd.read_csv(daily_data_path)
+            df["date"] = pd.to_datetime(df["date"]).dt.normalize()
+            df = df.sort_values("date")
+            day_mean = df.groupby(df["date"].dt.dayofyear)["rainfall"].mean()
+            default = float(day_mean.mean()) if len(day_mean) else 1.0
+            for lag in [1, 2, 7, 14, 30]:
+                prev = date_obj - timedelta(days=lag)
+                p = df[df["date"] == pd.Timestamp(prev)]
+                row[f"rainfall_lag_{lag}"] = float(p["rainfall"].iloc[0]) if len(p) > 0 else default
+            for w in [3, 7, 14]:
+                last = df[df["date"] < pd.Timestamp(date_obj)].tail(w)
+                row[f"rainfall_ma_{w}"] = float(last["rainfall"].mean()) if len(last) >= 2 else default
+            for col in ["temperature", "humidity", "wind_speed"]:
+                if col in df.columns:
+                    c_avg = df.groupby(df["date"].dt.dayofyear)[col].mean()
+                    v = float(c_avg.loc[doy]) if doy in c_avg.index else float(df[col].mean())
+                    row[f"{col}_lag_1"] = row[f"{col}_ma_7"] = v
+                    p1 = df[df["date"] == pd.Timestamp(date_obj - timedelta(days=1))]
+                    if len(p1) > 0:
+                        row[f"{col}_lag_1"] = float(p1[col].iloc[0])
+            if "cloud_cover" in df.columns:
+                p1 = df[df["date"] == pd.Timestamp(date_obj - timedelta(days=1))]
+                row["cloud_cover_lag_1"] = float(p1["cloud_cover"].iloc[0]) if len(p1) > 0 else 50
+            if "surface_pressure" in df.columns:
+                p1 = df[df["date"] == pd.Timestamp(date_obj - timedelta(days=1))]
+                row["surface_pressure_lag_1"] = float(p1["surface_pressure"].iloc[0]) if len(p1) > 0 else 1013
+        except Exception:
+            pass
+    row["temp_lag_1"] = row.get("temperature_lag_1", 0)
+    row["temp_ma_7"] = row.get("temperature_ma_7", 0)
     for c in feature_cols:
         if c not in row:
             row[c] = 0
     return row
 
 
+def _daily_features_from_history(daily_data_path, date_obj, feature_cols, base_year=1979):
+    """Tạo dict feature cho một ngày (dùng chung cho mọi mô hình)."""
+    return _build_daily_features_for_date(date_obj, daily_data_path, feature_cols, base_year)
+
+
 def predict_rainfall_daily(model_path, year, month, day, daily_data_path=None):
-    """
-    Dự đoán lượng mưa theo NGÀY (mm/ngày).
-    model_path: path tới daily_rainfall_model.pkl
-    daily_data_path: path tới daily_combined.csv (để lấy lags/weather).
-    """
+    """Dự đoán lượng mưa theo NGÀY (mm/ngày) - mô hình regression đơn."""
     from datetime import date
     date_obj = date(int(year), int(month), int(day))
     if not os.path.exists(model_path):
@@ -280,4 +282,34 @@ def predict_rainfall_daily(model_path, year, month, day, daily_data_path=None):
         X = X.values
     pred = model.predict(X)[0]
     return max(0.0, float(pred))
+
+
+def predict_rainfall_daily_two_stage(model_path, year, month, day, daily_data_path=None):
+    """
+    Dự đoán 2 giai đoạn: (1) Có mưa hay không (2) Nếu có thì lượng mưa bao nhiêu mm.
+    Trả về: (has_rain: bool, amount_mm: float, metrics: dict) hoặc dict đầy đủ nếu cần rain_probability.
+    """
+    from datetime import date
+    date_obj = date(int(year), int(month), int(day))
+    if not os.path.exists(model_path):
+        return False, 0.0, {}
+    with open(model_path, "rb") as f:
+        data = pickle.load(f)
+    if not isinstance(data, dict) or "classifier" not in data or "regressor" not in data:
+        return False, 0.0, {}
+    clf = data["classifier"]
+    reg = data["regressor"]
+    scaler = data.get("scaler")
+    feature_cols = data.get("feature_cols", [])
+    base_year = int(data.get("base_year", BASE_YEAR))
+    feats = _build_daily_features_for_date(date_obj, daily_data_path, feature_cols, base_year)
+    X = pd.DataFrame({c: [feats.get(c, 0)] for c in feature_cols})
+    X_s = scaler.transform(X) if scaler else X.values
+    has_rain = clf.predict(X_s)[0] == 1
+    rain_prob = float(clf.predict_proba(X_s)[0][1]) if hasattr(clf, "predict_proba") else (1.0 if has_rain else 0.0)
+    amount = float(reg.predict(X_s)[0]) if has_rain else 0.0
+    amount = max(0.0, amount)
+    metrics = dict(data.get("metrics", {}))
+    metrics["rain_probability"] = rain_prob
+    return has_rain, amount, metrics
 

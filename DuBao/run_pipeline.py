@@ -65,9 +65,9 @@ def main():
     if not ok:
         sys.exit(1)
 
-    ok = run_step("Bước 4: Train 3 mô hình dự đoán theo ngày (GB, RF, LR)", "train_daily_model")
+    ok = run_step("Bước 4: Train 3 mô hình 2 giai đoạn (GB, RF, Extra Trees)", "train_daily_two_stage")
     if not ok:
-        sys.exit(1)
+        run_step("Bước 4 (fallback): Train mô hình daily đơn", "train_daily_model")
 
     print("\n✅ Pipeline xong. Chạy web: từ thư mục gốc project:")
     print('   python manage.py runserver')

@@ -1,0 +1,295 @@
+{% extends 'predictor/base.html' %}
+
+{% block title %}Dự đoán Mưa Theo Ngày{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1>🌧️ Dự đoán Mưa Theo Ngày</h1>
+    <hr>
+    
+    <div class="row">
+        <!-- Form dự đoán -->
+        <div class="col-md-6">
+            <div class="card p-4 shadow">
+                <h3>📝 Nhập Thông Tin</h3>
+                
+                <form id="prediction-form">
+                    <div class="form-group">
+                        <label for="year">Năm:</label>
+                        <input type="number" id="year" class="form-control" min="1979" max="2100" value="2023" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="month">Tháng:</label>
+                        <select id="month" class="form-control" required>
+                            <option value="">-- Chọn tháng --</option>
+                            <option value="1">1 - Tháng Một</option>
+                            <option value="2">2 - Tháng Hai</option>
+                            <option value="3">3 - Tháng Ba</option>
+                            <option value="4">4 - Tháng Tư</option>
+                            <option value="5" selected>5 - Tháng Năm</option>
+                            <option value="6">6 - Tháng Sáu</option>
+                            <option value="7">7 - Tháng Bảy</option>
+                            <option value="8">8 - Tháng Tám</option>
+                            <option value="9">9 - Tháng Chín</option>
+                            <option value="10">10 - Tháng Mười</option>
+                            <option value="11">11 - Tháng Mười Một</option>
+                            <option value="12">12 - Tháng Mười Hai</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="day">Ngày:</label>
+                        <input type="number" id="day" class="form-control" min="1" max="31" value="15" required>
+                    </div>
+                    
+                    <button type="button" class="btn btn-primary btn-block" onclick="predictDaily()">
+                        🔮 Dự Đoán
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Kết quả dự đoán -->
+        <div class="col-md-6">
+            <div class="card p-4 shadow" id="result-card" style="display:none;">
+                <h3>📊 Kết Quả Dự Đoán</h3>
+                <hr>
+                
+                <div class="alert alert-info">
+                    <strong>📅 Ngày dự đoán:</strong> <span id="result-date"></span>
+                </div>
+                
+                <div class="alert" id="rain-alert">
+                    <strong>🌦️ Tình trạng:</strong> <span id="has-rain"></span>
+                </div>
+                
+                <div class="progress" style="height: 30px;">
+                    <div id="probability-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" style="width: 0%;">
+                    </div>
+                </div>
+                <p class="text-center mt-2">
+                    <strong>📈 Xác suất mưa:</strong> <span id="probability-text"></span>
+                </p>
+                
+                <div class="alert alert-success mt-3">
+                    <h4>💧 Lượng mưa dự đoán</h4>
+                    <h2 id="rainfall-amount" style="color: #0066cc;">0.00 mm</h2>
+                </div>
+                
+                <div class="card-footer bg-light">
+                    <small>
+                        <strong>Classifier:</strong> <span id="classifier-model"></span><br>
+                        <strong>Regressor:</strong> <span id="regressor-model"></span>
+                    </small>
+                </div>
+            </div>
+            
+            <!-- Loading spinner -->
+            <div id="loading-spinner" style="display:none; text-align:center;">
+                <div class="spinner-border" role="status">
+                    <span class="sr-only">Loading...</span>
+                </div>
+                <p>Đang dự đoán...</p>
+            </div>
+            
+            <!-- Error message -->
+            <div class="alert alert-danger" id="error-message" style="display:none;"></div>
+        </div>
+    </div>
+    
+    <!-- Dự đoán khoảng ngày -->
+    <div class="row mt-5">
+        <div class="col-md-12">
+            <div class="card p-4 shadow">
+                <h3>📅 Dự đoán Khoảng Ngày</h3>
+                <hr>
+                
+                <form id="range-form" class="row g-3">
+                    <div class="col-md-2">
+                        <label for="range-year">Năm:</label>
+                        <input type="number" id="range-year" class="form-control" min="1979" max="2100" value="2023">
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label for="range-month">Tháng:</label>
+                        <input type="number" id="range-month" class="form-control" min="1" max="12" value="5">
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label for="range-start">Ngày bắt đầu:</label>
+                        <input type="number" id="range-start" class="form-control" min="1" max="31" value="1">
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label for="range-days">Số ngày:</label>
+                        <input type="number" id="range-days" class="form-control" min="1" max="31" value="10">
+                    </div>
+                    
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="button" class="btn btn-success btn-block" onclick="predictRange()">
+                            🔮 Dự Đoán 10 Ngày
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Bảng kết quả -->
+                <div id="range-results" style="display:none; margin-top: 30px;">
+                    <h4>Kết quả dự đoán 10 ngày:</h4>
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Ngày</th>
+                                <th>Có mưa?</th>
+                                <th>Xác suất (%)</th>
+                                <th>Lượng mưa (mm)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="range-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border-radius: 10px;
+        border: none;
+    }
+    
+    .progress {
+        border-radius: 10px;
+        background-color: #f0f0f0;
+    }
+    
+    .alert {
+        border-radius: 10px;
+        border: none;
+    }
+    
+    #rainfall-amount {
+        font-size: 3em;
+        margin: 20px 0;
+    }
+</style>
+
+<script>
+function predictDaily() {
+    const year = document.getElementById('year').value;
+    const month = document.getElementById('month').value;
+    const day = document.getElementById('day').value;
+    
+    if (!month) {
+        alert('Vui lòng chọn tháng');
+        return;
+    }
+    
+    // Hiển thị loading
+    document.getElementById('loading-spinner').style.display = 'block';
+    document.getElementById('result-card').style.display = 'none';
+    document.getElementById('error-message').style.display = 'none';
+    
+    // Gọi API
+    fetch('/api/predict/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            year: parseInt(year),
+            month: parseInt(month),
+            day: parseInt(day)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loading-spinner').style.display = 'none';
+        
+        if (data.success) {
+            // Hiển thị kết quả
+            const result = data.data;
+            
+            document.getElementById('result-date').textContent = 
+                `${day}/${month}/${year}`;
+            
+            const rainAlert = document.getElementById('rain-alert');
+            if (result.has_rain) {
+                rainAlert.className = 'alert alert-info';
+                document.getElementById('has-rain').textContent = '☔ Có mưa';
+            } else {
+                rainAlert.className = 'alert alert-warning';
+                document.getElementById('has-rain').textContent = '☀️ Không mưa';
+            }
+            
+            const prob = Math.round(result.rain_probability * 100);
+            document.getElementById('probability-bar').style.width = prob + '%';
+            document.getElementById('probability-text').textContent = prob + '%';
+            
+            document.getElementById('rainfall-amount').textContent = 
+                result.predicted_rainfall.toFixed(2) + ' mm';
+            
+            document.getElementById('classifier-model').textContent = 
+                result.classifier_model;
+            document.getElementById('regressor-model').textContent = 
+                result.regressor_model;
+            
+            document.getElementById('result-card').style.display = 'block';
+        } else {
+            // Hiển thị lỗi
+            document.getElementById('error-message').textContent = data.message;
+            document.getElementById('error-message').style.display = 'block';
+        }
+    })
+    .catch(error => {
+        document.getElementById('loading-spinner').style.display = 'none';
+        document.getElementById('error-message').textContent = 'Lỗi: ' + error.message;
+        document.getElementById('error-message').style.display = 'block';
+    });
+}
+
+function predictRange() {
+    const year = document.getElementById('range-year').value;
+    const month = document.getElementById('range-month').value;
+    const startDay = document.getElementById('range-start').value;
+    const numDays = document.getElementById('range-days').value;
+    
+    // Gọi API
+    fetch(`/api/predict-range/?year=${year}&month=${month}&start_day=${startDay}&num_days=${numDays}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.data.length > 0) {
+            // Hiển thị bảng kết quả
+            const tbody = document.getElementById('range-table-body');
+            tbody.innerHTML = '';
+            
+            data.data.forEach(result => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${result.date}</td>
+                    <td>${result.has_rain ? '☔' : '☀️'}</td>
+                    <td>${(result.rain_probability * 100).toFixed(1)}%</td>
+                    <td>${result.predicted_rainfall.toFixed(2)} mm</td>
+                `;
+            });
+            
+            document.getElementById('range-results').style.display = 'block';
+        }
+    })
+    .catch(error => {
+        alert('Lỗi: ' + error.message);
+    });
+}
+
+// Enter key handler
+document.getElementById('day').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        predictDaily();
+    }
+});
+</script>
+
+{% endblock %}

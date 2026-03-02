@@ -1,0 +1,314 @@
+{% extends 'predictor/base.html' %}
+
+{% block title %}Model Metrics - Độ Chính Xác{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1>📊 Độ Chính Xác Của Các Mô Hình</h1>
+    <hr>
+    
+    <!-- Loading -->
+    <div id="loading" class="text-center">
+        <div class="spinner-border" role="status">
+            <span class="sr-only">Loading...</span>
+        </div>
+        <p>Đang tải thông tin mô hình...</p>
+    </div>
+    
+    <!-- Content -->
+    <div id="content" style="display:none;">
+        <!-- Classifier Metrics -->
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <h2>🎯 Classifier Models (Dự đoán: Có mưa hay không?)</h2>
+                <hr>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="classifier-table">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Mô hình</th>
+                                <th>Accuracy</th>
+                                <th>Precision</th>
+                                <th>Recall</th>
+                                <th>F1-Score</th>
+                                <th>Đánh giá</th>
+                            </tr>
+                        </thead>
+                        <tbody id="classifier-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Regressor Metrics -->
+        <div class="row mt-5">
+            <div class="col-md-12">
+                <h2>📈 Regressor Models (Dự đoán: Lượng mưa?)</h2>
+                <hr>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="regressor-table">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Mô hình</th>
+                                <th>MAE (mm)</th>
+                                <th>RMSE (mm)</th>
+                                <th>R²</th>
+                                <th>MAPE (%)</th>
+                                <th>Đánh giá</th>
+                            </tr>
+                        </thead>
+                        <tbody id="regressor-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Best Models -->
+        <div class="row mt-5">
+            <div class="col-md-6">
+                <div class="card p-4 bg-light shadow">
+                    <h3>🏆 Classifier Tốt Nhất</h3>
+                    <hr>
+                    <h4 id="best-classifier" style="color: #0066cc;">-</h4>
+                    <p id="best-classifier-score">-</p>
+                    <small class="text-muted">Dùng cho: Dự đoán có mưa hay không</small>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card p-4 bg-light shadow">
+                    <h3>🏆 Regressor Tốt Nhất</h3>
+                    <hr>
+                    <h4 id="best-regressor" style="color: #00cc00;">-</h4>
+                    <p id="best-regressor-score">-</p>
+                    <small class="text-muted">Dùng cho: Dự đoán lượng mưa (mm)</small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Metrics Explanation -->
+        <div class="row mt-5">
+            <div class="col-md-12">
+                <div class="card p-4 shadow">
+                    <h3>📖 Giải Thích Các Chỉ Số</h3>
+                    <hr>
+                    
+                    <h5>Classifier Metrics:</h5>
+                    <ul>
+                        <li><strong>Accuracy</strong>: Tỷ lệ dự đoán đúng trên tổng số (0-1 hoặc 0-100%)</li>
+                        <li><strong>Precision</strong>: Trong những dự đoán "có mưa", bao nhiêu % đúng</li>
+                        <li><strong>Recall</strong>: Bắt được bao nhiêu % các ngày mưa thực tế</li>
+                        <li><strong>F1-Score</strong>: Trung bình hài hòa của Precision và Recall</li>
+                    </ul>
+                    
+                    <h5 class="mt-3">Regressor Metrics:</h5>
+                    <ul>
+                        <li><strong>MAE</strong>: Mean Absolute Error - Sai số trung bình (mm). <strong>Càng nhỏ càng tốt</strong></li>
+                        <li><strong>RMSE</strong>: Root Mean Squared Error - Sai số căn bậc 2 (mm). Penalizes lỗi lớn</li>
+                        <li><strong>R²</strong>: Coefficient of Determination (0-1). Model giải thích được bao nhiêu % phương sai</li>
+                        <li><strong>MAPE</strong>: Mean Absolute Percentage Error (%). Sai số trung bình tính theo phần trăm</li>
+                    </ul>
+                    
+                    <h5 class="mt-3">Tiêu chí Đánh giá:</h5>
+                    <table class="table table-sm">
+                        <tr>
+                            <td>⭐⭐⭐⭐⭐ Xuất sắc</td>
+                            <td>Accuracy/R² > 0.85 hoặc MAE < 8mm</td>
+                        </tr>
+                        <tr>
+                            <td>⭐⭐⭐⭐ Rất tốt</td>
+                            <td>Accuracy/R² 0.75-0.85 hoặc MAE 8-12mm</td>
+                        </tr>
+                        <tr>
+                            <td>⭐⭐⭐ Tốt</td>
+                            <td>Accuracy/R² 0.65-0.75 hoặc MAE 12-20mm</td>
+                        </tr>
+                        <tr>
+                            <td>⭐⭐ Chấp nhận được</td>
+                            <td>Accuracy/R² 0.55-0.65 hoặc MAE 20-30mm</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Test Info -->
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="alert alert-info">
+                    <strong>ℹ️ Thông tin Test Set:</strong>
+                    <ul class="mb-0">
+                        <li>Tổng số mẫu test: <span id="test-count">-</span></li>
+                        <li>Ngày có mưa (trong test set): <span id="rain-count">-</span></li>
+                        <li>Ngày không mưa (trong test set): <span id="no-rain-count">-</span></li>
+                        <li>Tỷ lệ mưa: <span id="rain-ratio">-</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .table-hover tbody tr:hover {
+        background-color: #f5f5f5;
+        cursor: pointer;
+    }
+    
+    .card {
+        border-radius: 10px;
+        border: none;
+    }
+    
+    h1, h2, h3 {
+        color: #333;
+    }
+    
+    .bg-light {
+        background-color: #f8f9fa !important;
+    }
+    
+    .shadow {
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadMetrics();
+});
+
+function loadMetrics() {
+    fetch('/api/model-metrics/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayMetrics(data.data);
+            } else {
+                document.getElementById('content').innerHTML = 
+                    '<div class="alert alert-warning">Chưa có thông tin metrics. Hãy train mô hình trước!</div>';
+            }
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('loading').innerHTML = 
+                '<div class="alert alert-danger">Lỗi tải dữ liệu: ' + error.message + '</div>';
+        });
+}
+
+function displayMetrics(data) {
+    // Classifier
+    if (data.classifier && Object.keys(data.classifier).length > 0) {
+        const classifierBody = document.getElementById('classifier-body');
+        classifierBody.innerHTML = '';
+        
+        let bestClassifier = null;
+        let bestF1 = -1;
+        
+        for (const [name, metrics] of Object.entries(data.classifier)) {
+            const f1 = metrics.f1 || 0;
+            if (f1 > bestF1) {
+                bestF1 = f1;
+                bestClassifier = name;
+            }
+            
+            const row = document.createElement('tr');
+            const rating = getRating(metrics.accuracy || metrics.f1);
+            
+            row.innerHTML = `
+                <td><strong>${name}</strong></td>
+                <td>${formatMetric(metrics.accuracy)}</td>
+                <td>${formatMetric(metrics.precision)}</td>
+                <td>${formatMetric(metrics.recall)}</td>
+                <td>${formatMetric(metrics.f1)}</td>
+                <td>${rating}</td>
+            `;
+            
+            classifierBody.appendChild(row);
+        }
+        
+        if (bestClassifier) {
+            document.getElementById('best-classifier').textContent = bestClassifier;
+            document.getElementById('best-classifier-score').textContent = 
+                `F1-Score: ${formatMetric(bestF1)}`;
+        }
+    }
+    
+    // Regressor
+    if (data.regressor && Object.keys(data.regressor).length > 0) {
+        const regressorBody = document.getElementById('regressor-body');
+        regressorBody.innerHTML = '';
+        
+        let bestRegressor = null;
+        let bestR2 = -1;
+        
+        for (const [name, metrics] of Object.entries(data.regressor)) {
+            const r2 = metrics.r2 || 0;
+            if (r2 > bestR2) {
+                bestR2 = r2;
+                bestRegressor = name;
+            }
+            
+            const row = document.createElement('tr');
+            const rating = getRatingRegressor(metrics.r2);
+            
+            row.innerHTML = `
+                <td><strong>${name}</strong></td>
+                <td>${(metrics.mae || 0).toFixed(2)} mm</td>
+                <td>${(metrics.rmse || 0).toFixed(2)} mm</td>
+                <td>${formatMetric(metrics.r2)}</td>
+                <td>${(metrics.mape || 0).toFixed(2)}%</td>
+                <td>${rating}</td>
+            `;
+            
+            regressorBody.appendChild(row);
+        }
+        
+        if (bestRegressor) {
+            document.getElementById('best-regressor').textContent = bestRegressor;
+            document.getElementById('best-regressor-score').textContent = 
+                `R²: ${formatMetric(bestR2)}`;
+        }
+    }
+    
+    // Test info
+    if (data.test_set_info) {
+        const info = data.test_set_info;
+        document.getElementById('test-count').textContent = info.test_count || '-';
+        document.getElementById('rain-count').textContent = info.rain_count || '-';
+        document.getElementById('no-rain-count').textContent = 
+            (info.test_count - info.rain_count) || '-';
+        document.getElementById('rain-ratio').textContent = 
+            ((info.rain_count / info.test_count * 100) || 0).toFixed(1) + '%';
+    }
+}
+
+function formatMetric(value) {
+    if (value === null || value === undefined) return '-';
+    if (value >= 0 && value <= 1) {
+        return (value * 100).toFixed(2) + '%';
+    }
+    return value.toFixed(4);
+}
+
+function getRating(score) {
+    if (score >= 0.85) return '⭐⭐⭐⭐⭐ Xuất sắc';
+    if (score >= 0.75) return '⭐⭐⭐⭐ Rất tốt';
+    if (score >= 0.65) return '⭐⭐⭐ Tốt';
+    if (score >= 0.55) return '⭐⭐ Chấp nhận';
+    return '⭐ Cần cải thiện';
+}
+
+function getRatingRegressor(r2) {
+    if (r2 >= 0.85) return '⭐⭐⭐⭐⭐ Xuất sắc';
+    if (r2 >= 0.75) return '⭐⭐⭐⭐ Rất tốt';
+    if (r2 >= 0.65) return '⭐⭐⭐ Tốt';
+    if (r2 >= 0.55) return '⭐⭐ Chấp nhận';
+    return '⭐ Cần cải thiện';
+}
+</script>
+
+{% endblock %}
