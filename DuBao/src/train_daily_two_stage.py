@@ -136,25 +136,29 @@ def main():
         print(f"{name}: Accuracy={acc:.2%}, F1={f1:.3f} | Reg MAE={mae:.2f}, R²={r2:.4f}")
         return {"cls_accuracy": acc, "cls_f1": f1, "reg_mae": mae, "reg_r2": r2}
 
-    # Model 1: Gradient Boosting
+    # Model 1: Gradient Boosting (mạnh hơn để tăng R² / độ chính xác)
     train_model(
         "gradient_boosting",
-        GradientBoostingClassifier(n_estimators=100, max_depth=4, random_state=42),
-        GradientBoostingRegressor(n_estimators=100, max_depth=4, random_state=42),
+        GradientBoostingClassifier(
+            n_estimators=200, max_depth=5, learning_rate=0.08, subsample=0.85, random_state=42
+        ),
+        GradientBoostingRegressor(
+            n_estimators=200, max_depth=5, learning_rate=0.06, subsample=0.85, random_state=42
+        ),
     )
 
     # Model 2: Random Forest
     train_model(
         "random_forest",
-        RandomForestClassifier(n_estimators=100, max_depth=8, random_state=42),
-        RandomForestRegressor(n_estimators=100, max_depth=8, random_state=42),
+        RandomForestClassifier(n_estimators=200, max_depth=12, min_samples_leaf=2, random_state=42, n_jobs=-1),
+        RandomForestRegressor(n_estimators=200, max_depth=12, min_samples_leaf=2, random_state=42, n_jobs=-1),
     )
 
     # Model 3: Extra Trees
     m3 = train_model(
         "extra_trees",
-        ExtraTreesClassifier(n_estimators=100, max_depth=8, random_state=42),
-        ExtraTreesRegressor(n_estimators=100, max_depth=8, random_state=42),
+        ExtraTreesClassifier(n_estimators=200, max_depth=12, min_samples_leaf=2, random_state=42, n_jobs=-1),
+        ExtraTreesRegressor(n_estimators=200, max_depth=12, min_samples_leaf=2, random_state=42, n_jobs=-1),
     )
 
     # Load and save comparison metrics
