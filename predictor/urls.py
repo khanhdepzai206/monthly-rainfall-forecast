@@ -16,6 +16,9 @@ urlpatterns = [
     path('history/', views.prediction_history, name='prediction_history'),
     path('comparison-old/', views.comparison, name='comparison_old'),
     path('compare-two/', views.compare_two, name='compare_two'),
+    path('update-actual/', views.update_actual, name='update_actual'),
+    path('daily-predict/', views.daily_predict, name='daily_predict'),
+    path('actual-input/', views.actual_input, name='actual_input'),
 
     # authentication
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
@@ -23,6 +26,7 @@ urlpatterns = [
     
     # API endpoints (remain unchanged)
     path('chart-data/', views.get_chart_data, name='chart_data'),
+    path('predict-forecast/', views.predict_multi_day_forecast, name='predict_forecast'),
     path('api/predict/', api_views.predict_daily_api, name='api_predict'),
     path('api/predict-range/', api_views.predict_range_api, name='api_predict_range'),
     path('api/predict-compare/', api_views.predict_compare_models_api, name='api_predict_compare'),
