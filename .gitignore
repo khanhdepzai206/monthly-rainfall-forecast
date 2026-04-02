@@ -91,5 +91,3 @@ htmlcov/
 # Documentation
 site/
 
-# Migrations (optional - uncomment nếu không muốn push)
-# predictor/migrations/

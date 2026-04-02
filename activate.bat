@@ -1,0 +1,23 @@
+[33mcommit 14bf2ee9e4c78de0773bf2950047260dd73e55a6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mnewdev[m[33m, [m[1;31morigin/newdev[m[33m)[m
+Author: khanhdepzai206 <nguyenkhanh200603@gmail.com>
+Date:   Mon Mar 2 23:01:02 2026 +0700
+
+    update feature ...
+
+[33mcommit ef590486322d1a86617e6185ed4d134802cd9f1d[m
+Author: khanhdepzai206 <nguyenkhanh200603@gmail.com>
+Date:   Thu Jan 29 22:08:33 2026 +0700
+
+    converting predictions from month to days
+
+[33mcommit 78f653e81825e9da09f32b356b15a8da19193b48[m
+Author: khanhdepzai206 <nguyenkhanh200603@gmail.com>
+Date:   Sun Jan 25 16:44:59 2026 +0700
+
+    Update rainfall prediction model
+
+[33mcommit e98e242b10d2e031bbb2b98dc0072c5bac4fc464[m[33m ([m[1;31morigin/main[m[33m, [m[1;32mmain[m[33m)[m
+Author: khanhdepzai206 <nguyenkhanh200603@gmail.com>
+Date:   Sat Jan 3 22:46:08 2026 +0700
+
+    Initial project structure and SARIMA model setup

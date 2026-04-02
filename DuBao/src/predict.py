@@ -7,6 +7,29 @@ import numpy as np
 BASE_YEAR = 1979
 
 
+def _map_calendar_to_history_date(ts, df):
+    """
+    Ánh xạ một ngày (kể cả năm tương lai) sang một ngày nằm trong khoảng dữ liệu CSV
+    bằng cách lặp theo các năm có sẵn, để cùng tháng/ngày nhưng khác năm dự đoán
+    → khác năm trong lịch sử → lag / MA khác nhau.
+    """
+    ts = pd.Timestamp(ts).normalize()
+    dmin = df["date"].min()
+    dmax = df["date"].max()
+    if dmin <= ts <= dmax:
+        return ts
+    years = sorted(df["date"].dt.year.unique().tolist())
+    if not years:
+        return ts
+    n = len(years)
+    yi = (int(ts.year) - years[0]) % n
+    mapped_y = years[yi]
+    try:
+        return pd.Timestamp(year=mapped_y, month=ts.month, day=ts.day)
+    except ValueError:
+        return pd.Timestamp(year=mapped_y, month=ts.month, day=28)
+
+
 def _get_rainfall_lags_from_history(weather_data_path, year, month):
     """
     Lấy rainfall lag/ma từ dữ liệu lịch sử nếu có; không thì dùng trung bình theo tháng.
@@ -223,27 +246,34 @@ def _build_daily_features_for_date(date_obj, daily_data_path, feature_cols, base
             df["date"] = pd.to_datetime(df["date"]).dt.normalize()
             df = df.sort_values("date")
             day_mean = df.groupby(df["date"].dt.dayofyear)["rainfall"].mean()
-            default = float(day_mean.mean()) if len(day_mean) else 1.0
+            default = float(day_mean.loc[doy]) if doy in day_mean.index else float(day_mean.mean() if len(day_mean) else 1.0)
+            # Ngày "hôm nay" đã ánh xạ vào lịch sử — MA tính trước ngày đó (không phải cuối file)
+            today_hist = _map_calendar_to_history_date(pd.Timestamp(date_obj), df)
             for lag in [1, 2, 7, 14, 30]:
                 prev = date_obj - timedelta(days=lag)
-                p = df[df["date"] == pd.Timestamp(prev)]
+                prev_hist = _map_calendar_to_history_date(pd.Timestamp(prev), df)
+                p = df[df["date"] == prev_hist]
                 row[f"rainfall_lag_{lag}"] = float(p["rainfall"].iloc[0]) if len(p) > 0 else default
             for w in [3, 7, 14]:
-                last = df[df["date"] < pd.Timestamp(date_obj)].tail(w)
+                last = df[df["date"] < today_hist].tail(w)
                 row[f"rainfall_ma_{w}"] = float(last["rainfall"].mean()) if len(last) >= 2 else default
+            prev1_hist = _map_calendar_to_history_date(pd.Timestamp(date_obj - timedelta(days=1)), df)
             for col in ["temperature", "humidity", "wind_speed"]:
                 if col in df.columns:
                     c_avg = df.groupby(df["date"].dt.dayofyear)[col].mean()
                     v = float(c_avg.loc[doy]) if doy in c_avg.index else float(df[col].mean())
                     row[f"{col}_lag_1"] = row[f"{col}_ma_7"] = v
-                    p1 = df[df["date"] == pd.Timestamp(date_obj - timedelta(days=1))]
+                    p1 = df[df["date"] == prev1_hist]
                     if len(p1) > 0:
                         row[f"{col}_lag_1"] = float(p1[col].iloc[0])
+                    last_t = df[df["date"] < today_hist].tail(7)
+                    if len(last_t) >= 2 and col in last_t.columns:
+                        row[f"{col}_ma_7"] = float(last_t[col].mean())
             if "cloud_cover" in df.columns:
-                p1 = df[df["date"] == pd.Timestamp(date_obj - timedelta(days=1))]
+                p1 = df[df["date"] == prev1_hist]
                 row["cloud_cover_lag_1"] = float(p1["cloud_cover"].iloc[0]) if len(p1) > 0 else 50
             if "surface_pressure" in df.columns:
-                p1 = df[df["date"] == pd.Timestamp(date_obj - timedelta(days=1))]
+                p1 = df[df["date"] == prev1_hist]
                 row["surface_pressure_lag_1"] = float(p1["surface_pressure"].iloc[0]) if len(p1) > 0 else 1013
         except Exception:
             pass
@@ -312,4 +342,3 @@ def predict_rainfall_daily_two_stage(model_path, year, month, day, daily_data_pa
     metrics = dict(data.get("metrics", {}))
     metrics["rain_probability"] = rain_prob
     return has_rain, amount, metrics
-

@@ -13,25 +13,60 @@ SRC_DIR = os.path.join(DUBAO_DIR, "src")
 DATA_DIR = os.path.join(DUBAO_DIR, "data")
 
 
-def run_step(step_name, mod_name, func_name="main"):
-    """Chạy một bước: import module và gọi hàm main."""
+def get_daily_predictions():
+    """
+    Dự đoán lượng mưa ngày mai bằng 3 mô hình ML.
+    Trả về: pred_rf, pred_lr, pred_xgb
+    """
+    import pandas as pd
+    import pickle
+    from datetime import datetime, timedelta
+
+    # Load models
+    models_dir = os.path.join(DUBAO_DIR, "models")
+    models = {}
+
+    for name in ['rf', 'xgb', 'lr']:
+        model_path = os.path.join(models_dir, f'{name}_daily_model.pkl')
+        if os.path.exists(model_path):
+            with open(model_path, 'rb') as f:
+                models[name] = pickle.load(f)
+        else:
+            raise FileNotFoundError(f"Model {name} not found: {model_path}")
+
+    # Load latest features
+    data_dir = os.path.join(DUBAO_DIR, "data")
+    df = pd.read_csv(os.path.join(data_dir, 'daily_features.csv'))
+
+    # Lấy dòng cuối cùng (ngày gần nhất có đủ lag features)
+    latest = df.iloc[-1:].copy()
+    feature_cols = [c for c in df.columns if 'lag' in c]
+    X_pred = latest[feature_cols]
+
+    # Predict
+    predictions = {}
+    for name, model in models.items():
+        pred = model.predict(X_pred)[0]
+        predictions[name] = max(0, pred)  # Không âm
+
+    return predictions['rf'], predictions['lr'], predictions['xgb']
+
+
+def retrain_models():
+    """
+    Retrain tất cả 3 models với dữ liệu mới nhất.
+    """
+    print("🔄 Retraining models...")
+
+    # Import train function
     sys.path.insert(0, SRC_DIR)
-    os.chdir(SRC_DIR)
     try:
-        mod = __import__(mod_name)
-        fn = getattr(mod, func_name, None)
-        if not callable(fn):
-            print(f"  Bỏ qua: {mod_name}.{func_name} không tồn tại.")
-            return True
-        print(f"\n--- {step_name} ---")
-        fn()
-        return True
+        from train_daily_models import train_daily_models
+        train_daily_models()
+        print("✅ Models retrained successfully")
     except Exception as e:
-        print(f"  Lỗi: {e}")
-        return False
-    finally:
-        if DUBAO_DIR:
-            os.chdir(DUBAO_DIR)
+        print(f"❌ Retrain failed: {e}")
+        raise
 
 
 def main():
