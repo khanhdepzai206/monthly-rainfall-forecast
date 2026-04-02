@@ -17,7 +17,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 
 DATA_PATH = "../data/daily_combined.csv"
 MODEL_DIR = "../models/"
-BASE_YEAR = 1979
+BASE_YEAR = 1979 
 
 def create_sequences(X, y, seq_length=30):
     """Create sequences for LSTM"""

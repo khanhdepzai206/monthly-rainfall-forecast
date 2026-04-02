@@ -1,13 +1,18 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib import messages
 import sys
 import os
 import pickle
 import pandas as pd
 import numpy as np
 import json
+import joblib
+from datetime import datetime, timedelta
+from .models import RainfallPrediction, DailyPrediction, ActualRainfall
+from .forms import ActualRainfallForm
 from datetime import datetime
 import base64
 from io import BytesIO
@@ -19,6 +24,7 @@ import matplotlib.pyplot as plt
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'DuBao'))
 
 from src.predict import predict_rainfall, predict_rainfall_daily, predict_rainfall_daily_two_stage
+from src.rolling_forecast import rolling_forecast
 from .models import RainfallPrediction
 
 # Cấu hình đường dẫn mô hình và metrics
@@ -143,6 +149,7 @@ def index(request):
 # If you need the legacy API, you can rename this function and update URLs accordingly.
 
 
+@csrf_exempt
 def flask_predict(request):
     """Trang dự đoán: GET render template, POST trả JSON từ 3 mô hình 2 giai đoạn."""
     if request.method == 'POST':
@@ -151,50 +158,91 @@ def flask_predict(request):
 
 
 def _predict_daily_two_stage_api(request):
-    """API: Dự đoán theo ngày với 3 mô hình 2 giai đoạn (Gradient Boosting, Random Forest, Extra Trees)."""
+    """API: Dự đoán theo ngày với 3 mô hình RF, XGB, LR (cùng models như daily-predict)."""
     try:
         year = int(request.POST.get('year', request.GET.get('year', 0)))
         month = int(request.POST.get('month', request.GET.get('month', 0)))
         day = int(request.POST.get('day', request.GET.get('day', 0)))
-        if not (1979 <= year <= 2100) or not (1 <= month <= 12) or not (1 <= day <= 31):
+        
+        if not (1979 <= year <= 2026) or not (1 <= month <= 12) or not (1 <= day <= 31):
             return JsonResponse({'success': False, 'error': 'Ngày không hợp lệ'})
+        
+        # Tạo date object
+        from datetime import datetime as dt
+        predict_date = dt(year, month, day).date()
+        
         project_root = os.path.join(os.path.dirname(__file__), '..')
         models_dir = os.path.join(project_root, 'DuBao', 'models')
-        daily_path = os.path.join(project_root, 'DuBao', 'data', 'daily_combined.csv')
-        model_names = [
-            ('gradient_boosting', 'Gradient Boosting'),
-            ('random_forest', 'Random Forest'),
-            ('extra_trees', 'Extra Trees'),
+        features_path = os.path.join(project_root, 'DuBao', 'data', 'daily_features.csv')
+        
+        # Load features cho ngày cụ thể
+        df = pd.read_csv(features_path)
+        df['date'] = pd.to_datetime(df['date']).dt.date
+        
+        row = df[df['date'] == predict_date]
+        if row.empty:
+            return JsonResponse({'success': False, 'error': f'Không có dữ liệu cho ngày {day:02d}/{month:02d}/{year}'})
+        
+        # Features cần thiết (giống daily-predict)
+        required_features = [
+            'temperature_lag_1', 'temperature_lag_2', 'temperature_lag_3',
+            'temperature_lag_4', 'temperature_lag_5', 'temperature_lag_6',
+            'temperature_lag_7', 'humidity_lag_1', 'humidity_lag_2', 'humidity_lag_3',
+            'humidity_lag_4', 'humidity_lag_5', 'humidity_lag_6', 'humidity_lag_7',
+            'wind_speed_lag_1', 'wind_speed_lag_2', 'wind_speed_lag_3',
+            'wind_speed_lag_4', 'wind_speed_lag_5', 'wind_speed_lag_6',
+            'wind_speed_lag_7', 'cloud_cover_lag_1', 'cloud_cover_lag_2',
+            'cloud_cover_lag_3', 'cloud_cover_lag_4', 'cloud_cover_lag_5',
+            'cloud_cover_lag_6', 'cloud_cover_lag_7', 'surface_pressure_lag_1',
+            'surface_pressure_lag_2', 'surface_pressure_lag_3',
+            'surface_pressure_lag_4', 'surface_pressure_lag_5',
+            'surface_pressure_lag_6', 'surface_pressure_lag_7', 'rainfall_lag_1',
+            'rainfall_lag_2', 'rainfall_lag_3', 'rainfall_lag_4', 'rainfall_lag_5',
+            'rainfall_lag_6', 'rainfall_lag_7'
         ]
+        
+        features = row[required_features]
+        
+        # Load models
+        rf_path = os.path.join(models_dir, 'rf_daily_model.pkl')
+        xgb_path = os.path.join(models_dir, 'xgb_daily_model.pkl')
+        lr_path = os.path.join(models_dir, 'lr_daily_model.pkl')
+        
         models_result = []
-        chart_data = {'labels': [], 'cls_accuracy': [], 'cls_f1': [], 'reg_r2': [], 'reg_mae': []}
-        for key, label in model_names:
-            path = os.path.join(models_dir, f'daily_two_stage_{key}.pkl')
-            if not os.path.exists(path):
+        
+        # Predict với 3 models
+        model_configs = [
+            (rf_path, 'RandomForest', 'RF'),
+            (xgb_path, 'XGBoost', 'XGB'),
+            (lr_path, 'LinearRegression', 'LR'),
+        ]
+        
+        for model_path, label, key in model_configs:
+            if not os.path.exists(model_path):
                 models_result.append({
                     'model': label,
                     'key': key,
-                    'has_rain': False,
                     'amount_mm': 0,
                     'error': 'Mô hình chưa được train',
-                    'metrics': {},
                 })
                 continue
-            has_rain, amount_mm, metrics = predict_rainfall_daily_two_stage(
-                path, year, month, day, daily_path
-            )
-            models_result.append({
-                'model': label,
-                'key': key,
-                'has_rain': has_rain,
-                'amount_mm': round(amount_mm, 2),
-                'metrics': metrics,
-            })
-            chart_data['labels'].append(label)
-            chart_data['cls_accuracy'].append(round(metrics.get('cls_accuracy', 0) * 100, 1))
-            chart_data['cls_f1'].append(round(metrics.get('cls_f1', 0) * 100, 1))
-            chart_data['reg_r2'].append(round(metrics.get('reg_r2', 0) * 100, 1))
-            chart_data['reg_mae'].append(round(metrics.get('reg_mae', 0), 2))
+            
+            try:
+                model = joblib.load(model_path)
+                pred = float(model.predict(features)[0])
+                models_result.append({
+                    'model': label,
+                    'key': key,
+                    'amount_mm': round(pred, 2),
+                })
+            except Exception as e:
+                models_result.append({
+                    'model': label,
+                    'key': key,
+                    'amount_mm': 0,
+                    'error': str(e),
+                })
+        
         date_label = f'{day:02d}/{month:02d}/{year}'
         return JsonResponse({
             'success': True,
@@ -203,9 +251,55 @@ def _predict_daily_two_stage_api(request):
             'month': month,
             'day': day,
             'models': models_result,
-            'chart_data': chart_data,
         })
     except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@csrf_exempt
+def predict_multi_day_forecast(request):
+    """
+    API: Rolling forecast cho 4-5 ngày tiếp theo.
+    Sử dụng dữ liệu thời tiết dự báo + rolling prediction.
+    """
+    try:
+        year = int(request.POST.get('year', request.GET.get('year', 0)))
+        month = int(request.POST.get('month', request.GET.get('month', 0)))
+        day = int(request.POST.get('day', request.GET.get('day', 0)))
+        
+        # Validate: phải là ngày hợp lệ
+        from datetime import datetime as dt
+        try:
+            start_date = dt(year, month, day).date()
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Ngày không hợp lệ'})
+        
+        # Check nếu start_date trước ngày 01/04/2026, adjust
+        last_available = dt(2026, 4, 1).date()
+        if start_date <= last_available:
+            # Đổi sang ngày tiếp theo
+            start_date = last_available + timedelta(days=1)
+        
+        # Call rolling forecast
+        project_root = os.path.join(os.path.dirname(__file__), '..')
+        predictions = rolling_forecast(
+            start_date.strftime('%Y-%m-%d'),
+            num_days=5,
+            models_dir=os.path.join(project_root, 'DuBao', 'models'),
+            data_dir=os.path.join(project_root, 'DuBao', 'data')
+        )
+        
+        if predictions is None:
+            return JsonResponse({'success': False, 'error': 'Không thể tạo forecast'})
+        
+        return JsonResponse({
+            'success': True,
+            'start_date': start_date.strftime('%d/%m/%Y'),
+            'forecast': predictions
+        })
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'success': False, 'error': str(e)})
 
 # legacy predict API removed – predictions are now served via predictor/api_views.py
@@ -333,3 +427,192 @@ def model_metrics(request):
     Template: model_metrics.html
     """
     return render(request, 'predictor/model_metrics.html')
+
+
+@login_required
+def update_actual(request):
+    """Route cũ giữ lại để tương thích, dùng chung logic với actual_input."""
+    if request.method == 'POST':
+        try:
+            actual_date = request.POST.get('actual_date')
+            actual_rainfall = float(request.POST.get('actual_rainfall', 0))
+
+            if not actual_date:
+                return JsonResponse({'success': False, 'error': 'Chưa chọn ngày'})
+
+            actual, _ = ActualRainfall.objects.update_or_create(
+                date=actual_date,
+                defaults={'actual_rainfall': actual_rainfall}
+            )
+
+            try:
+                prediction = DailyPrediction.objects.get(date=actual.date)
+                actual.prediction = prediction
+                actual.save()
+                actual.calculate_errors()
+
+                retrained = False
+                retrain_info = actual.retrain_summary()
+
+                if retrain_info['needs_retrain']:
+                    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'DuBao'))
+                    from run_pipeline import retrain_models
+                    retrain_models()
+                    actual.retrained = True
+                    actual.save()
+                    retrained = True
+
+                message = f'Đã cập nhật actual rainfall cho ngày {actual.date}. '
+                if retrained:
+                    message += f"Sai lệch lớn ({retrain_info['max_pct']:.1f}%), hệ thống đang retrain."
+                else:
+                    message += f"Sai lệch nhỏ ({retrain_info['max_pct']:.1f}%); không cần retrain."
+
+                message += ' ' + retrain_info['details']
+
+                return JsonResponse({'success': True, 'message': message})
+
+            except DailyPrediction.DoesNotExist:
+                return JsonResponse({'success': False, 'error': f'Không tìm thấy prediction cho ngày {actual.date}'})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+
+    return redirect('actual_input')
+
+
+def daily_predict(request):
+    """Trang dự đoán lượng mưa ngày mai bằng 3 mô hình ML."""
+    context = {
+        'predictions': None,
+        'best_model': None,
+        'error': None
+    }
+
+    if request.method == 'POST':
+        try:
+            # Gọi run_pipeline.py để lấy predictions
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'DuBao'))
+
+            # Import run_pipeline function (giả sử có function get_predictions)
+            from run_pipeline import get_daily_predictions
+
+            pred_rf, pred_lr, pred_xgb = get_daily_predictions()
+
+            # Lưu vào database
+            tomorrow = datetime.now().date() + timedelta(days=1)
+            prediction, created = DailyPrediction.objects.get_or_create(
+                date=tomorrow,
+                defaults={
+                    'rf_pred': pred_rf,
+                    'lr_pred': pred_lr,
+                    'xgb_pred': pred_xgb,
+                    'best_model': None  # Sẽ cập nhật sau
+                }
+            )
+
+            if not created:
+                # Cập nhật nếu đã tồn tại
+                prediction.rf_pred = pred_rf
+                prediction.lr_pred = pred_lr
+                prediction.xgb_pred = pred_xgb
+                prediction.save()
+
+            # Xác định best model (dựa trên model evaluation nếu có)
+            eval_path = os.path.join(os.path.dirname(__file__), '..', 'DuBao', 'models', 'model_evaluation.csv')
+            best_model = None
+            if os.path.exists(eval_path):
+                eval_df = pd.read_csv(eval_path)
+                best_row = eval_df[eval_df['is_best'] == True]
+                if not best_row.empty:
+                    best_model = best_row['model'].iloc[0].upper()
+
+            context.update({
+                'predictions': {
+                    'rf': round(pred_rf, 2),
+                    'lr': round(pred_lr, 2),
+                    'xgb': round(pred_xgb, 2)
+                },
+                'best_model': best_model,
+                'date': tomorrow.strftime('%d/%m/%Y')
+            })
+
+        except Exception as e:
+            context['error'] = f"Lỗi khi dự đoán: {str(e)}"
+            print(f"Error in daily_predict: {e}")
+
+    return render(request, 'daily_predict.html', context)
+
+
+@login_required
+def actual_input(request):
+    """Trang nhập lượng mưa thực tế."""
+    form = ActualRainfallForm(request.POST or None)
+
+    if request.method == 'POST':
+        actual_date = request.POST.get('date')
+        actual_rainfall = request.POST.get('actual_rainfall')
+
+        if actual_date and actual_rainfall not in [None, '']:
+            try:
+                actual, created = ActualRainfall.objects.update_or_create(
+                    date=actual_date,
+                    defaults={'actual_rainfall': float(actual_rainfall)}
+                )
+
+                # Tìm prediction tương ứng
+                try:
+                    prediction = DailyPrediction.objects.get(date=actual.date)
+                    actual.prediction = prediction
+                    actual.save()
+
+                    # Tính sai số
+                    actual.calculate_errors()
+
+                    # Kiểm tra retrain
+                    retrain_info = actual.retrain_summary()
+                    action = 'cập nhật' if not created else 'lưu'
+
+                    if retrain_info['needs_retrain']:
+                        try:
+                            sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'DuBao'))
+                            from run_pipeline import retrain_models
+                            retrain_models()
+                            actual.retrained = True
+                            actual.save()
+                            messages.success(request, (
+                                f"Đã {action} actual rainfall cho ngày {actual.date}. "
+                                f"Sai lệch lớn ({retrain_info['max_pct']:.1f}%), hệ thống đang retrain. "
+                                f"{retrain_info['details']}"
+                            ))
+                        except Exception as e:
+                            messages.warning(request, (
+                                f"Đã {action} actual rainfall nhưng lỗi retrain: {str(e)}. "
+                                f"{retrain_info['details']}"
+                            ))
+                    else:
+                        messages.success(request, (
+                            f"Đã {action} actual rainfall cho ngày {actual.date}. "
+                            f"Sai lệch nhỏ ({retrain_info['max_pct']:.1f}%), không cần retrain. "
+                            f"{retrain_info['details']}"
+                        ))
+
+                except DailyPrediction.DoesNotExist:
+                    messages.warning(request, f'Đã lưu actual rainfall nhưng không tìm thấy prediction cho ngày {actual.date}')
+
+                return redirect('actual_input')
+
+            except ValueError:
+                messages.error(request, 'Lượng mưa thực tế không hợp lệ')
+        else:
+            messages.warning(request, 'Vui lòng nhập đầy đủ ngày và lượng mưa thực tế.')
+
+    # Hiển thị actuals gần đây
+    recent_actuals = ActualRainfall.objects.select_related('prediction').order_by('-date')[:10]
+
+    context = {
+        'form': form,
+        'recent_actuals': recent_actuals
+    }
+
+    return render(request, 'actual_input.html', context)
