@@ -49,34 +49,16 @@ def get_daily_predictions():
         # Get latest row for prediction (tomorrow's features)
         latest_features = df.iloc[-1:].copy()
 
-        # Remove target column if exists
-        if 'rainfall' in latest_features.columns:
-            latest_features = latest_features.drop('rainfall', axis=1)
+        # Remove non-feature columns if they exist
+        for drop_col in ['date', 'datetime', 'rainfall', 'target']:
+            if drop_col in latest_features.columns:
+                latest_features = latest_features.drop(drop_col, axis=1)
 
-        # Ensure all required features are present (35 lag features)
-        required_features = [
-            'temperature_lag_1', 'temperature_lag_2', 'temperature_lag_3',
-            'temperature_lag_4', 'temperature_lag_5', 'temperature_lag_6',
-            'temperature_lag_7', 'humidity_lag_1', 'humidity_lag_2', 'humidity_lag_3',
-            'humidity_lag_4', 'humidity_lag_5', 'humidity_lag_6', 'humidity_lag_7',
-            'wind_speed_lag_1', 'wind_speed_lag_2', 'wind_speed_lag_3',
-            'wind_speed_lag_4', 'wind_speed_lag_5', 'wind_speed_lag_6',
-            'wind_speed_lag_7', 'cloud_cover_lag_1', 'cloud_cover_lag_2',
-            'cloud_cover_lag_3', 'cloud_cover_lag_4', 'cloud_cover_lag_5',
-            'cloud_cover_lag_6', 'cloud_cover_lag_7', 'surface_pressure_lag_1',
-            'surface_pressure_lag_2', 'surface_pressure_lag_3',
-            'surface_pressure_lag_4', 'surface_pressure_lag_5',
-            'surface_pressure_lag_6', 'surface_pressure_lag_7', 'rainfall_lag_1',
-            'rainfall_lag_2', 'rainfall_lag_3', 'rainfall_lag_4', 'rainfall_lag_5',
-            'rainfall_lag_6', 'rainfall_lag_7'
-        ]
+        feature_columns = [c for c in latest_features.columns]
+        if not feature_columns:
+            raise ValueError('Không tìm thấy feature nào để dự đoán.')
 
-        missing_features = [f for f in required_features if f not in latest_features.columns]
-        if missing_features:
-            raise ValueError(f"Thiếu các features: {missing_features}")
-
-        # Select only required features in correct order
-        features_for_prediction = latest_features[required_features]
+        features_for_prediction = latest_features[feature_columns]
 
         # Make predictions
         rf_pred = float(rf_model.predict(features_for_prediction)[0])

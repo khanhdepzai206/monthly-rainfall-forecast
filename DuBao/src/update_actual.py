@@ -59,7 +59,7 @@ def update_actual_rainfall(actual_date, actual_rainfall):
     return True
 
 def get_recent_errors(days=7):
-    """Lấy sai số trung bình của 7 ngày gần nhất cho từng model."""
+    """Lấy sai số trung bình và median của 7 ngày gần nhất cho từng model."""
 
     log_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'prediction_log.csv')
 
@@ -67,8 +67,6 @@ def get_recent_errors(days=7):
         return {}
 
     log_df = pd.read_csv(log_path)
-
-    # Lọc các dòng có actual
     valid_df = log_df.dropna(subset=['actual']).tail(days)
 
     if len(valid_df) == 0:
@@ -79,9 +77,14 @@ def get_recent_errors(days=7):
 
     for error_col in error_cols:
         if error_col in valid_df.columns:
-            mean_error = valid_df[error_col].mean()
-            errors[error_col.replace('error_', '')] = mean_error
-            print(f"{error_col}: {mean_error:.4f}")
+            series = valid_df[error_col].astype(float)
+            mean_error = series.mean()
+            median_error = series.median()
+            errors[error_col.replace('error_', '')] = {
+                'mean': mean_error,
+                'median': median_error,
+            }
+            print(f"{error_col}: mean={mean_error:.4f}, median={median_error:.4f}")
 
     return errors
 

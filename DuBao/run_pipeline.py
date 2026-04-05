@@ -38,9 +38,12 @@ def get_daily_predictions():
     data_dir = os.path.join(DUBAO_DIR, "data")
     df = pd.read_csv(os.path.join(data_dir, 'daily_features.csv'))
 
-    # Lấy dòng cuối cùng (ngày gần nhất có đủ lag features)
+    # Lấy dòng cuối cùng (ngày gần nhất có đủ features)
     latest = df.iloc[-1:].copy()
-    feature_cols = [c for c in df.columns if 'lag' in c]
+    
+    # Features cần thiết (giống như trong training)
+    exclude = {'date', 'target', 'datetime', 'rainfall'}
+    feature_cols = [c for c in df.columns if c not in exclude]
     X_pred = latest[feature_cols]
 
     # Predict
