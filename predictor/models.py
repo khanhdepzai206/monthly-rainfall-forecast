@@ -37,7 +37,7 @@ class DailyPrediction(models.Model):
         ordering = ['-date']
 
     def __str__(self):
-        return f"Dự đoán {self.date} - RF:{self.rf_pred:.1f}, LR:{self.lr_pred:.1f}, XGB:{self.xgb_pred:.1f} mm"
+        return f"Dự đoán {self.date} - RF:{self.rf_pred:.3f}, LR:{self.lr_pred:.3f}, XGB:{self.xgb_pred:.3f} mm"
 
 
 class ActualRainfall(models.Model):
@@ -64,38 +64,48 @@ class ActualRainfall(models.Model):
         ordering = ['-date']
 
     def __str__(self):
-        return f"Actual {self.date}: {self.actual_rainfall:.1f} mm"
+        return f"Actual {self.date}: {self.actual_rainfall:.3f} mm"
 
-    def calculate_errors(self):
-        """Tính sai số cho từng mô hình."""
+    def evaluate_error(self):
+        """Tính và lưu lại sai số của từng mô hình."""
         if not self.prediction:
-            return
+            return None
 
         self.rf_error = abs(self.prediction.rf_pred - self.actual_rainfall)
         self.lr_error = abs(self.prediction.lr_pred - self.actual_rainfall)
         self.xgb_error = abs(self.prediction.xgb_pred - self.actual_rainfall)
         self.save()
 
-    def check_retrain_threshold(self, threshold_percent=20, abs_threshold=0.5):
-        """Kiểm tra xem có cần retrain không."""
-        if any(err is None for err in [self.rf_error, self.lr_error, self.xgb_error]):
+        return {
+            'rf_error': self.rf_error,
+            'lr_error': self.lr_error,
+            'xgb_error': self.xgb_error,
+        }
+
+    def needs_retrain(self, abs_threshold=0.15, relative_threshold=0.4):
+        """Xác định retrain theo ngưỡng mới cho actual thấp và actual lớn."""
+        if not self.prediction or any(err is None for err in [self.rf_error, self.lr_error, self.xgb_error]):
             return False
 
-        # Nếu actual thấp (dưới 0.5mm), dùng ngưỡng tuyệt đối để tránh % quá lớn
-        if self.actual_rainfall is None or self.actual_rainfall <= 0.5:
+        if self.actual_rainfall is None:
+            return False
+
+        if self.actual_rainfall < 0.5:
             return any(err > abs_threshold for err in [self.rf_error, self.lr_error, self.xgb_error])
 
-        # Tính sai số phần trăm (dựa trên actual rainfall)
-        rf_error_pct = (self.rf_error / self.actual_rainfall) * 100
-        lr_error_pct = (self.lr_error / self.actual_rainfall) * 100
-        xgb_error_pct = (self.xgb_error / self.actual_rainfall) * 100
+        return any((err / self.actual_rainfall) > relative_threshold
+                   for err in [self.rf_error, self.lr_error, self.xgb_error])
 
-        return any(error_pct > threshold_percent
-                   for error_pct in [rf_error_pct, lr_error_pct, xgb_error_pct])
+    def check_retrain_threshold(self, abs_threshold=0.15, threshold_percent=40):
+        """Kiểm tra xem có cần retrain không theo thresholds mới."""
+        return self.needs_retrain(abs_threshold=abs_threshold, relative_threshold=threshold_percent / 100.0)
 
     def get_error_percentages(self):
-        """Trả về phần trăm sai số của từng mô hình."""
+        """Trả về phần trăm sai số của từng mô hình nếu actual đủ lớn."""
         if not self.prediction or self.actual_rainfall is None or self.actual_rainfall == 0:
+            return None
+
+        if self.actual_rainfall < 0.5:
             return None
 
         return {
@@ -104,25 +114,33 @@ class ActualRainfall(models.Model):
             'xgb_pct': (self.xgb_error / self.actual_rainfall) * 100 if self.xgb_error is not None else None,
         }
 
-    def retrain_summary(self, threshold_percent=20):
-        """Tinh tổng quan retrain: có cần retrain không và thông tin chi tiết."""
-        errors = self.get_error_percentages()
-        if not errors:
+    def retrain_summary(self, abs_threshold=0.15, relative_threshold=0.4):
+        """Tổng hợp thông tin retrain theo quy tắc mới."""
+        if any(err is None for err in [self.rf_error, self.lr_error, self.xgb_error]):
             return {
                 'needs_retrain': False,
                 'max_pct': None,
                 'details': 'Chưa có đủ dữ liệu để đánh giá.'
             }
 
-        max_pct = max(errors.values())
-        needs_retrain = max_pct > threshold_percent
-        details = (
-            f"RF: {errors['rf_pct']:.1f}%, XGB: {errors['xgb_pct']:.1f}%, LR: {errors['lr_pct']:.1f}%")
+        needs_retrain = self.needs_retrain(abs_threshold=abs_threshold, relative_threshold=relative_threshold)
+        details = []
+        if self.actual_rainfall < 0.5:
+            details.append(f'Actual nhỏ (<0.5mm), ngưỡng retrain tuyệt đối={abs_threshold:.2f}mm')
+            details.append(f'RF={self.rf_error:.3f}mm, XGB={self.xgb_error:.3f}mm, LR={self.lr_error:.3f}mm')
+            max_pct = max(self.rf_error, self.lr_error, self.xgb_error)
+        else:
+            errors_pct = self.get_error_percentages() or {}
+            details.append(f'Actual≥0.5mm, ngưỡng retrain tỷ lệ={relative_threshold * 100:.0f}%')
+            details.append(
+                f"RF={errors_pct.get('rf_pct', 0):.1f}%, XGB={errors_pct.get('xgb_pct', 0):.1f}%, LR={errors_pct.get('lr_pct', 0):.1f}%"
+            )
+            max_pct = max(errors_pct.values()) if errors_pct else None
 
         return {
             'needs_retrain': needs_retrain,
             'max_pct': max_pct,
-            'details': details
+            'details': ' | '.join(details)
         }
 
     @property

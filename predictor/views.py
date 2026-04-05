@@ -183,25 +183,11 @@ def _predict_daily_two_stage_api(request):
         if row.empty:
             return JsonResponse({'success': False, 'error': f'Không có dữ liệu cho ngày {day:02d}/{month:02d}/{year}'})
         
-        # Features cần thiết (giống daily-predict)
-        required_features = [
-            'temperature_lag_1', 'temperature_lag_2', 'temperature_lag_3',
-            'temperature_lag_4', 'temperature_lag_5', 'temperature_lag_6',
-            'temperature_lag_7', 'humidity_lag_1', 'humidity_lag_2', 'humidity_lag_3',
-            'humidity_lag_4', 'humidity_lag_5', 'humidity_lag_6', 'humidity_lag_7',
-            'wind_speed_lag_1', 'wind_speed_lag_2', 'wind_speed_lag_3',
-            'wind_speed_lag_4', 'wind_speed_lag_5', 'wind_speed_lag_6',
-            'wind_speed_lag_7', 'cloud_cover_lag_1', 'cloud_cover_lag_2',
-            'cloud_cover_lag_3', 'cloud_cover_lag_4', 'cloud_cover_lag_5',
-            'cloud_cover_lag_6', 'cloud_cover_lag_7', 'surface_pressure_lag_1',
-            'surface_pressure_lag_2', 'surface_pressure_lag_3',
-            'surface_pressure_lag_4', 'surface_pressure_lag_5',
-            'surface_pressure_lag_6', 'surface_pressure_lag_7', 'rainfall_lag_1',
-            'rainfall_lag_2', 'rainfall_lag_3', 'rainfall_lag_4', 'rainfall_lag_5',
-            'rainfall_lag_6', 'rainfall_lag_7'
-        ]
-        
-        features = row[required_features]
+        # Features cần thiết (giống như trong training - loại bỏ các cột không phải feature)
+        features_df = row.copy()
+        exclude_cols = {'date', 'target', 'datetime', 'rainfall'}
+        feature_cols = [c for c in features_df.columns if c not in exclude_cols]
+        features = features_df[feature_cols]
         
         # Load models
         rf_path = os.path.join(models_dir, 'rf_daily_model.pkl')
