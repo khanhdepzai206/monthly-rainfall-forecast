@@ -27,21 +27,23 @@ def load_models():
     return models
 
 def get_latest_features():
-    """Lấy features từ 7 ngày gần nhất để dự đoán ngày mai."""
+    """Lấy features từ ngày gần nhất để dự đoán ngày mai."""
 
     data_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
     df = pd.read_csv(os.path.join(data_dir, 'daily_features.csv'))
 
-    # Lấy dòng cuối cùng (ngày gần nhất có đủ lag features)
+    # Lấy dòng cuối cùng (ngày gần nhất có đủ features)
     latest = df.iloc[-1:].copy()
 
-    # Features cho prediction
-    feature_cols = [c for c in df.columns if 'lag' in c]
+    # Features cho prediction (giống như trong training)
+    exclude = {'date', 'target', 'datetime', 'rainfall'}
+    feature_cols = [c for c in df.columns if c not in exclude]
     X_pred = latest[feature_cols]
 
     # Ngày dự đoán (ngày mai)
     pred_date = pd.to_datetime(latest['date'].iloc[0]) + timedelta(days=1)
 
+    print(f"📊 Using {len(feature_cols)} features for prediction")
     return X_pred, pred_date.date()
 
 def predict_daily():

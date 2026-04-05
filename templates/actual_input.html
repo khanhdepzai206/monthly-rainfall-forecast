@@ -205,23 +205,23 @@
                         <div class="prediction-comparison">
                             <div class="pred-item">
                                 <div class="pred-label">RandomForest</div>
-                                <div class="pred-value">{{ actual.prediction.rf_pred|floatformat:1 }} mm</div>
+                                <div class="pred-value">{{ actual.prediction.rf_pred|floatformat:3 }} mm</div>
                                 {% if actual.rf_error is not None %}
-                                <div class="text-muted small">Error: {{ actual.rf_error|floatformat:2 }} ({{ actual.rf_error|floatformat:2 }} mm)</div>
+                                <div class="text-muted small">Error: {{ actual.rf_error|floatformat:3 }} ({{ actual.rf_error|floatformat:3 }} mm)</div>
                                 {% endif %}
                             </div>
                             <div class="pred-item">
                                 <div class="pred-label">XGBoost</div>
-                                <div class="pred-value">{{ actual.prediction.xgb_pred|floatformat:1 }} mm</div>
+                                <div class="pred-value">{{ actual.prediction.xgb_pred|floatformat:3 }} mm</div>
                                 {% if actual.xgb_error is not None %}
-                                <div class="text-muted small">Error: {{ actual.xgb_error|floatformat:2 }} {% if actual.xgb_error_pct is not None %}({{ actual.xgb_error_pct|floatformat:1 }}%){% else %}(N/A){% endif %}</div>
+                                <div class="text-muted small">Error: {{ actual.xgb_error|floatformat:3 }} {% if actual.xgb_error_pct is not None %}({{ actual.xgb_error_pct|floatformat:1 }}%){% else %}(N/A){% endif %}</div>
                                 {% endif %}
                             </div>
                             <div class="pred-item">
                                 <div class="pred-label">LinearReg</div>
-                                <div class="pred-value">{{ actual.prediction.lr_pred|floatformat:1 }} mm</div>
+                                <div class="pred-value">{{ actual.prediction.lr_pred|floatformat:3 }} mm</div>
                                 {% if actual.lr_error is not None %}
-                                <div class="text-muted small">Error: {{ actual.lr_error|floatformat:2 }} {% if actual.lr_error_pct is not None %}({{ actual.lr_error_pct|floatformat:1 }}%){% else %}(N/A){% endif %}</div>
+                                <div class="text-muted small">Error: {{ actual.lr_error|floatformat:3 }} {% if actual.lr_error_pct is not None %}({{ actual.lr_error_pct|floatformat:1 }}%){% else %}(N/A){% endif %}</div>
                                 {% endif %}
                             </div>
                         </div>
