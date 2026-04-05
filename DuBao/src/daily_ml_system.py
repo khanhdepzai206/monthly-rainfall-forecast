@@ -94,8 +94,8 @@ def show_status():
         recent = log_df.tail(3)
         for _, row in recent.iterrows():
             date = row.get('date', row.get('target_date', 'N/A'))
-            rf_pred = f"{row.get('rf_pred'):.1f}" if pd.notna(row.get('rf_pred')) else "N/A"
-            actual = f"{row.get('actual'):.1f}" if pd.notna(row.get('actual')) else "Pending"
+            rf_pred = f"{row.get('rf_pred'):.3f}" if pd.notna(row.get('rf_pred')) else "N/A"
+            actual = f"{row.get('actual'):.3f}" if pd.notna(row.get('actual')) else "Pending"
             print(f"  {date}: RF={rf_pred}mm, Actual={actual}mm")
 
     # Hiển thị best model

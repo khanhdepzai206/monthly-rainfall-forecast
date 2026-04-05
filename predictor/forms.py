@@ -15,9 +15,9 @@ class ActualRainfallForm(forms.ModelForm):
             }),
             'actual_rainfall': forms.NumberInput(attrs={
                 'class': 'form-control',
-                'step': '0.1',
+                'step': '0.001',
                 'min': '0',
-                'placeholder': '0.0',
+                'placeholder': '0.000',
                 'required': True
             })
         }
