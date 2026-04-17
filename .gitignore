@@ -3,11 +3,12 @@ db.sqlite3
 *.sqlite3
 *.db
 
-# Models & trained data
+# Models & trained data (GitHub: tối đa ~100MB/file — không commit artifact train)
 models/*.pkl
 models/*.h5
 models/*.pth
 models/*.pt
+DuBao/models/**/*.pkl
 
 # Data files
 data/raw_daily.csv

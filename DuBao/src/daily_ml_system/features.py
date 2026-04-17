@@ -95,10 +95,13 @@ def merge_actuals_from_log(df: pd.DataFrame, log_path: str) -> pd.DataFrame:
     log = pd.read_csv(log_path)
     if "target_date" not in log.columns or "actual" not in log.columns:
         return df
-    log["target_date"] = pd.to_datetime(log["target_date"]).dt.normalize()
+    # prediction_log có thể lẫn nhiều format date (YYYY-MM-DD hoặc YYYY-MM-DD HH:MM:SS)
+    log["target_date"] = pd.to_datetime(log["target_date"], errors="coerce", format="mixed").dt.normalize()
     df = df.copy()
     df["date"] = pd.to_datetime(df["date"]).dt.normalize()
     for _, row in log.dropna(subset=["actual"]).iterrows():
+        if pd.isna(row["target_date"]):
+            continue
         m = df["date"] == row["target_date"]
         if m.any():
             df.loc[m, "rainfall"] = float(row["actual"])

@@ -120,7 +120,7 @@
     <div class="container">
         <div class="header-section">
             <h1><i class="fas fa-cloud-sun-rain text-primary"></i> Dự Báo Lượng Mưa Ngày Mai</h1>
-            <p>Sử dụng 3 mô hình Machine Learning: RandomForest, XGBoost, LinearRegression</p>
+            <p>Sử dụng 3 mô hình Machine Learning (2 bước): RandomForest, XGBoost, ExtraTrees</p>
         </div>
 
         <div class="text-center">
@@ -148,6 +148,13 @@
         <div class="alert alert-success">
             <i class="fas fa-calendar-check"></i>
             <strong>Dự đoán cho ngày {{ date }}</strong>
+            <div class="mt-2" style="font-size:0.95em">
+                (Dữ liệu đầu vào dùng đến ngày <strong>{{ data_as_of }}</strong> trong file <code>daily_combined.csv</code>)
+            </div>
+        </div>
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i>
+            Ngưỡng xác định “có mưa” theo xác suất: <strong>{{ predictions.rain_threshold }}%</strong>
         </div>
 
         <div class="row">
@@ -155,6 +162,10 @@
                 <div class="prediction-card">
                     <div class="model-name">
                         <i class="fas fa-tree text-success"></i> RandomForest
+                    </div>
+                    <div style="color:#6c757d;font-size:0.95em">
+                        Khả năng mưa: <strong>{{ predictions.rf_prob }}%</strong> —
+                        {% if predictions.rf_has_rain %}<strong style="color:#28a745">Có mưa</strong>{% else %}<strong style="color:#6c757d">Không mưa</strong>{% endif %}
                     </div>
                     <div class="prediction-value">
                         {{ predictions.rf }}<span class="unit"> mm</span>
@@ -172,6 +183,10 @@
                     <div class="model-name">
                         <i class="fas fa-rocket text-warning"></i> XGBoost
                     </div>
+                    <div style="color:#6c757d;font-size:0.95em">
+                        Khả năng mưa: <strong>{{ predictions.xgb_prob }}%</strong> —
+                        {% if predictions.xgb_has_rain %}<strong style="color:#28a745">Có mưa</strong>{% else %}<strong style="color:#6c757d">Không mưa</strong>{% endif %}
+                    </div>
                     <div class="prediction-value">
                         {{ predictions.xgb }}<span class="unit"> mm</span>
                     </div>
@@ -186,12 +201,16 @@
             <div class="col-md-4">
                 <div class="prediction-card">
                     <div class="model-name">
-                        <i class="fas fa-chart-line text-info"></i> LinearRegression
+                        <i class="fas fa-bolt text-info"></i> ExtraTrees
+                    </div>
+                    <div style="color:#6c757d;font-size:0.95em">
+                        Khả năng mưa: <strong>{{ predictions.et_prob }}%</strong> —
+                        {% if predictions.et_has_rain %}<strong style="color:#28a745">Có mưa</strong>{% else %}<strong style="color:#6c757d">Không mưa</strong>{% endif %}
                     </div>
                     <div class="prediction-value">
-                        {{ predictions.lr }}<span class="unit"> mm</span>
+                        {{ predictions.et }}<span class="unit"> mm</span>
                     </div>
-                    {% if best_model == 'LR' %}
+                    {% if best_model == 'ET' %}
                     <div class="best-model-badge">
                         <i class="fas fa-star"></i> Mô Hình Tốt Nhất
                     </div>

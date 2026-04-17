@@ -44,12 +44,12 @@ def main(argv=None):
 
     if args.cmd == "predict":
         from .predict_daily import predict_tomorrow
-        t, p, preds = predict_tomorrow()
+        t, p, preds, probs = predict_tomorrow()
         print(f"Ngày dự đoán mưa (target): {t.date()}")
         print(f"Feature đến ngày: {p.date()}")
-        print(f"RandomForest: {preds['rf']:.2f} mm")
-        print(f"XGBoost:      {preds['xgb']:.2f} mm")
-        print(f"LinearReg:    {preds['lr']:.2f} mm")
+        print(f"RandomForest: {preds['rf']:.2f} mm (p={probs['rf']:.2f})")
+        print(f"XGBoost:      {preds['xgb']:.2f} mm (p={probs['xgb']:.2f})")
+        print(f"ExtraTrees:   {preds['et']:.2f} mm (p={probs['et']:.2f})")
         return 0
 
     if args.cmd == "log":
