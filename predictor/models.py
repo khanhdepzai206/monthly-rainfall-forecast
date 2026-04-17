@@ -82,6 +82,10 @@ class ActualRainfall(models.Model):
             'xgb_error': self.xgb_error,
         }
 
+    # Backward-compatible alias (older views call this name)
+    def calculate_errors(self):
+        return self.evaluate_error()
+
     def needs_retrain(self, abs_threshold=0.15, relative_threshold=0.4):
         """Xác định retrain theo ngưỡng mới cho actual thấp và actual lớn."""
         if not self.prediction or any(err is None for err in [self.rf_error, self.lr_error, self.xgb_error]):

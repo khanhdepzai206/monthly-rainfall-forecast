@@ -12,6 +12,25 @@ DUBAO_DIR = os.path.dirname(os.path.abspath(__file__))
 SRC_DIR = os.path.join(DUBAO_DIR, "src")
 DATA_DIR = os.path.join(DUBAO_DIR, "data")
 
+def run_step(step_name, mod_name, func_name="main"):
+    """Chạy một bước: import module trong DuBao/src và gọi hàm."""
+    sys.path.insert(0, SRC_DIR)
+    os.chdir(SRC_DIR)
+    try:
+        mod = __import__(mod_name)
+        fn = getattr(mod, func_name, None)
+        if not callable(fn):
+            print(f"  Bỏ qua: {mod_name}.{func_name} không tồn tại.")
+            return True
+        print(f"\n--- {step_name} ---")
+        fn()
+        return True
+    except Exception as e:
+        print(f"  Lỗi: {e}")
+        return False
+    finally:
+        os.chdir(DUBAO_DIR)
+
 
 def get_daily_predictions():
     """
@@ -79,6 +98,11 @@ def main():
         action="store_true",
         help="Gọi Open-Meteo API lấy/cập nhật dữ liệu thời tiết (nhiệt độ, độ ẩm, gió, mây, áp suất)",
     )
+    parser.add_argument(
+        "--extend-rain",
+        action="store_true",
+        help="Mở rộng dữ liệu mưa theo ngày (raw_daily.csv) đến 2025 bằng Open-Meteo (precipitation_sum)",
+    )
     args = parser.parse_args()
 
     print("Thư mục DuBao:", DUBAO_DIR)
@@ -93,6 +117,11 @@ def main():
             print("Chưa có weather_daily.csv. Chạy với --fetch để tải dữ liệu từ API:")
             print("  python run_pipeline.py --fetch")
         print("\n--- Bước 1: Bỏ qua fetch (dùng dữ liệu hiện có) ---")
+
+    if args.extend_rain:
+        ok = run_step("Bước 1b: Mở rộng dữ liệu mưa đến 2025 (Open-Meteo)", "fetch_rainfall_extend")
+        if not ok:
+            print("Không mở rộng được raw_daily.csv. Tiếp tục với dữ liệu hiện có...")
 
     ok = run_step("Bước 2: Chuẩn hóa dữ liệu (ngày->tháng, merge weather)", "prepare_data")
     if not ok:

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Dự đoán mưa ngày mai bằng cả 3 mô hình."""
+"""Dự đoán mưa ngày mai bằng 3 mô hình 2-stage (xgb/et/rf)."""
 import os
 import pickle
 from datetime import timedelta
@@ -23,9 +23,9 @@ def load_bundle(path: Optional[str] = None) -> Dict[str, Any]:
 def predict_tomorrow(
     data_path: Optional[str] = None,
     bundle_path: Optional[str] = None,
-) -> Tuple[pd.Timestamp, pd.Timestamp, Dict[str, float]]:
+) -> Tuple[pd.Timestamp, pd.Timestamp, Dict[str, float], Dict[str, float]]:
     """
-    Trả về (target_date, prediction_date, {'rf':..., 'xgb':..., 'lr':...})
+    Trả về (target_date, prediction_date, preds_mm, probs_rain)
     target_date = ngày cần dự đoán mưa (ngày mai so với ngày cuối trong CSV).
     prediction_date = ngày cuối cùng có đủ feature (hôm nay trong dữ liệu).
     """
@@ -42,22 +42,42 @@ def predict_tomorrow(
         raise ValueError(f"Thiếu feature so với lúc train: {missing}")
     X = last_row_feature_matrix(df, bundle["feature_cols"])
     Xs = scaler.transform(X)
-    out = {
-        "rf": float(models["rf"].predict(Xs)[0]),
-        "xgb": float(models["xgb"].predict(Xs)[0]),
-        "lr": float(models["lr"].predict(Xs)[0]),
-    }
-    for k in out:
-        out[k] = max(0.0, out[k])
+    two_stage = bool(bundle.get("two_stage", False))
+    rain_th = float(bundle.get("rain_prob_threshold", 0.5))
+
+    preds: Dict[str, float] = {}
+    probs: Dict[str, float] = {}
+
+    if two_stage:
+        for name in ["xgb", "et", "rf"]:
+            pack = models[name]
+            clf = pack["clf"]
+            reg = pack["reg"]
+            if hasattr(clf, "predict_proba"):
+                prob = float(clf.predict_proba(Xs)[0][1])
+            else:
+                prob = float(clf.predict(Xs)[0])
+            pred_log = float(reg.predict(Xs)[0])
+            mm = float(np.expm1(pred_log))
+            mm = max(0.0, mm)
+            preds[name] = mm if prob >= rain_th else 0.0
+            probs[name] = prob
+    else:
+        # legacy path (old bundle)
+        for k in models:
+            preds[k] = max(0.0, float(models[k].predict(Xs)[0]))
+            probs[k] = 0.0
+
     target_date = prediction_date + timedelta(days=1)
-    return target_date, prediction_date, out
+    return target_date, prediction_date, preds, probs
 
 
 def main():
-    t, p, preds = predict_tomorrow()
+    t, p, preds, probs = predict_tomorrow()
     print(f"prediction_date (feature tới): {p.date()}")
     print(f"target_date (dự đoán mưa): {t.date()}")
     print(preds)
+    print("rain_probability:", probs)
 
 
 if __name__ == "__main__":

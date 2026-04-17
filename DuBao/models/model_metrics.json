@@ -1,47 +1,47 @@
 {
   "gradient_boosting_weather": {
-    "mae": 102.93,
-    "rmse": 170.45,
-    "r2_score": 0.7277,
-    "accuracy_percent": 72.8
+    "mae": 59.35,
+    "rmse": 91.07,
+    "r2_score": 0.7422,
+    "accuracy_percent": 74.2
   },
   "random_forest_weather": {
-    "mae": 108.03,
-    "rmse": 195.66,
-    "r2_score": 0.6412,
-    "accuracy_percent": 64.1
+    "mae": 73.74,
+    "rmse": 104.72,
+    "r2_score": 0.6591,
+    "accuracy_percent": 65.9
   },
   "sarimax": {
-    "mae": 121.78,
-    "rmse": 223.06,
-    "r2_score": 0.5337,
-    "accuracy_percent": 53.4
+    "mae": 105.89,
+    "rmse": 153.23,
+    "r2_score": 0.2701,
+    "accuracy_percent": 27.0
   },
   "daily_two_stage_gradient_boosting": {
-    "cls_accuracy": 0.7667581340650725,
-    "cls_f1": 0.6518431831480398,
-    "cls_precision": 0.7923186344238976,
-    "cls_recall": 0.5536779324055666,
-    "reg_mae": 17.99327392194956,
-    "reg_rmse": 32.393203042510976,
-    "reg_r2": 0.3572530137629112
+    "cls_accuracy": 0.7244389027431422,
+    "cls_f1": 0.7963133640552995,
+    "cls_precision": 0.9147697194282689,
+    "cls_recall": 0.7050183598531212,
+    "reg_mae": 8.829105807315548,
+    "reg_rmse": 15.131753666466759,
+    "reg_r2": -0.002429475678071169
   },
   "daily_two_stage_random_forest": {
-    "cls_accuracy": 0.7808702469619757,
-    "cls_f1": 0.7009095773140717,
-    "cls_precision": 0.7589803012746235,
-    "cls_recall": 0.6510934393638171,
-    "reg_mae": 16.86748110133079,
-    "reg_rmse": 31.91330503820582,
-    "reg_r2": 0.37615624878717835
+    "cls_accuracy": 0.6140897755610972,
+    "cls_f1": 0.6682743837084673,
+    "cls_precision": 0.9734582357533177,
+    "cls_recall": 0.5087719298245614,
+    "reg_mae": 8.847978856924586,
+    "reg_rmse": 14.236282595722843,
+    "reg_r2": 0.11270404114272414
   },
   "daily_two_stage_extra_trees": {
-    "cls_accuracy": 0.7706781654253234,
-    "cls_f1": 0.676974047487576,
-    "cls_precision": 0.7614906832298136,
-    "cls_recall": 0.6093439363817097,
-    "reg_mae": 15.943357306565735,
-    "reg_rmse": 31.659431509905655,
-    "reg_r2": 0.38604224837055157
+    "cls_accuracy": 0.5227556109725686,
+    "cls_f1": 0.5516837481698389,
+    "cls_precision": 0.9771784232365145,
+    "cls_recall": 0.3843329253365973,
+    "reg_mae": 7.949634017478935,
+    "reg_rmse": 12.538651946444137,
+    "reg_r2": 0.3117012239196506
   }
 }

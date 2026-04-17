@@ -13,7 +13,6 @@ import joblib
 from datetime import datetime, timedelta
 from .models import RainfallPrediction, DailyPrediction, ActualRainfall
 from .forms import ActualRainfallForm
-from datetime import datetime
 import base64
 from io import BytesIO
 import matplotlib
@@ -435,7 +434,7 @@ def update_actual(request):
                 prediction = DailyPrediction.objects.get(date=actual.date)
                 actual.prediction = prediction
                 actual.save()
-                actual.calculate_errors()
+                actual.evaluate_error()
 
                 retrained = False
                 retrain_info = actual.retrain_summary()
@@ -468,7 +467,7 @@ def update_actual(request):
 
 
 def daily_predict(request):
-    """Trang dự đoán lượng mưa ngày mai bằng 3 mô hình ML."""
+    """Trang dự đoán lượng mưa ngày mai bằng 3 mô hình ML (2 bước: có mưa? + mm)."""
     context = {
         'predictions': None,
         'best_model': None,
@@ -477,50 +476,51 @@ def daily_predict(request):
 
     if request.method == 'POST':
         try:
-            # Gọi run_pipeline.py để lấy predictions
-            sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'DuBao'))
+            # Dùng hệ daily_ml_system (2-stage) để dự đoán ngày mai
+            dubao_src = os.path.join(os.path.dirname(__file__), '..', 'DuBao', 'src')
+            sys.path.insert(0, dubao_src)
+            from daily_ml_system.predict_daily import predict_tomorrow
+            from daily_ml_system.evaluate import full_report
+            from daily_ml_system import config as ml_cfg
 
-            # Import run_pipeline function (giả sử có function get_predictions)
-            from run_pipeline import get_daily_predictions
+            _target_from_data, prediction_date, preds, probs = predict_tomorrow()
+            # Hiển thị "ngày mai" theo lịch thật (nút UI), không phải theo ngày cuối trong CSV
+            calendar_tomorrow = datetime.now().date() + timedelta(days=1)
+            rain_th = 0.5
+            try:
+                # bundle lưu threshold nếu có
+                import pickle
+                if os.path.exists(ml_cfg.MODEL_BUNDLE_PATH):
+                    with open(ml_cfg.MODEL_BUNDLE_PATH, 'rb') as f:
+                        b = pickle.load(f)
+                    rain_th = float(b.get('rain_prob_threshold', rain_th))
+            except Exception:
+                pass
 
-            pred_rf, pred_lr, pred_xgb = get_daily_predictions()
-
-            # Lưu vào database
-            tomorrow = datetime.now().date() + timedelta(days=1)
-            prediction, created = DailyPrediction.objects.get_or_create(
-                date=tomorrow,
-                defaults={
-                    'rf_pred': pred_rf,
-                    'lr_pred': pred_lr,
-                    'xgb_pred': pred_xgb,
-                    'best_model': None  # Sẽ cập nhật sau
-                }
-            )
-
-            if not created:
-                # Cập nhật nếu đã tồn tại
-                prediction.rf_pred = pred_rf
-                prediction.lr_pred = pred_lr
-                prediction.xgb_pred = pred_xgb
-                prediction.save()
-
-            # Xác định best model (dựa trên model evaluation nếu có)
-            eval_path = os.path.join(os.path.dirname(__file__), '..', 'DuBao', 'models', 'model_evaluation.csv')
+            # Best model dựa trên MAE 7 ngày gần nhất (nếu có actual), fallback XGB
             best_model = None
-            if os.path.exists(eval_path):
-                eval_df = pd.read_csv(eval_path)
-                best_row = eval_df[eval_df['is_best'] == True]
-                if not best_row.empty:
-                    best_model = best_row['model'].iloc[0].upper()
+            try:
+                rep = full_report()
+                best_model = (rep.get('best_model') or '').upper()
+            except Exception:
+                best_model = None
 
             context.update({
                 'predictions': {
-                    'rf': round(pred_rf, 2),
-                    'lr': round(pred_lr, 2),
-                    'xgb': round(pred_xgb, 2)
+                    'rf': round(float(preds.get('rf', 0.0)), 2),
+                    'xgb': round(float(preds.get('xgb', 0.0)), 2),
+                    'et': round(float(preds.get('et', 0.0)), 2),
+                    'rf_prob': round(float(probs.get('rf', 0.0)) * 100, 1),
+                    'xgb_prob': round(float(probs.get('xgb', 0.0)) * 100, 1),
+                    'et_prob': round(float(probs.get('et', 0.0)) * 100, 1),
+                    'rf_has_rain': bool(probs.get('rf', 0.0) >= rain_th),
+                    'xgb_has_rain': bool(probs.get('xgb', 0.0) >= rain_th),
+                    'et_has_rain': bool(probs.get('et', 0.0) >= rain_th),
+                    'rain_threshold': round(float(rain_th) * 100, 0),
                 },
                 'best_model': best_model,
-                'date': tomorrow.strftime('%d/%m/%Y')
+                'date': calendar_tomorrow.strftime('%d/%m/%Y'),
+                'data_as_of': pd.Timestamp(prediction_date).strftime('%d/%m/%Y'),
             })
 
         except Exception as e:
@@ -553,7 +553,7 @@ def actual_input(request):
                     actual.save()
 
                     # Tính sai số
-                    actual.calculate_errors()
+                    actual.evaluate_error()
 
                     # Kiểm tra retrain
                     retrain_info = actual.retrain_summary()
