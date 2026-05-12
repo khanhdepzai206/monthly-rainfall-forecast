@@ -111,7 +111,7 @@ def show_status():
 def main():
     parser = argparse.ArgumentParser(description="Daily Rainfall Prediction System")
     parser.add_argument('action', choices=['setup', 'predict', 'update', 'status'],
-                       help='Action to perform')
+                    help='Action to perform')
     parser.add_argument('--date', help='Date for actual update (YYYY-MM-DD)')
     parser.add_argument('--rainfall', type=float, help='Actual rainfall amount (mm)')
 

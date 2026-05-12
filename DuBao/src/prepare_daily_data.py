@@ -19,6 +19,29 @@ def prepare_daily_data():
     rain_df['date'] = pd.to_datetime(rain_df['datetime']).dt.date
     rain_df = rain_df.groupby('date')['rainfall'].sum().reset_index()
 
+    # Optional: override rainfall bằng actual người dùng nhập (từ web/DB export)
+    overrides_path = os.path.join(data_dir, 'actual_overrides.csv')
+    if os.path.exists(overrides_path):
+        try:
+            ov = pd.read_csv(overrides_path)
+            if 'date' in ov.columns and 'actual_rainfall' in ov.columns:
+                ov['date'] = pd.to_datetime(ov['date']).dt.date
+                ov = ov.dropna(subset=['actual_rainfall'])
+                # Chỉ override cho ngày quá khứ (tránh bẩn dữ liệu tương lai)
+                today = pd.Timestamp.now(tz='Asia/Ho_Chi_Minh').date()
+                ov = ov[ov['date'] <= (today - pd.Timedelta(days=1))]
+                ov = ov[['date', 'actual_rainfall']].drop_duplicates(subset=['date'], keep='last')
+
+                rain_df = rain_df.merge(ov, on='date', how='left')
+                rain_df['rainfall'] = np.where(
+                    rain_df['actual_rainfall'].notna(),
+                    rain_df['actual_rainfall'].astype(float),
+                    rain_df['rainfall'].astype(float),
+                )
+                rain_df = rain_df.drop(columns=['actual_rainfall'])
+        except Exception as e:
+            print(f"⚠️ Không áp dụng actual_overrides.csv: {e}")
+
     weather_df = pd.read_csv(os.path.join(data_dir, 'weather_daily.csv'))
     weather_df['date'] = pd.to_datetime(weather_df['date']).dt.date
 
@@ -56,8 +79,9 @@ def prepare_daily_data():
     df.to_csv(output_path, index=False)
 
     feature_count = len([c for c in df.columns if c not in ['date', 'datetime', 'rainfall', 'target']])
-    print(f"✓ Đã chuẩn bị dữ liệu: {len(df)} mẫu, lưu tại {output_path}")
-    print(f"Features: {feature_count} features")
+    # Tránh lỗi encoding Windows console (cp1252) do ký tự Unicode
+    print(f"[DataPrep] Prepared: {len(df)} samples, saved to {output_path}")
+    print(f"[DataPrep] Features: {feature_count} features")
     return df
 
 if __name__ == "__main__":

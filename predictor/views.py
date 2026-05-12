@@ -26,6 +26,29 @@ from src.predict import predict_rainfall, predict_rainfall_daily, predict_rainfa
 from src.rolling_forecast import rolling_forecast
 from .models import RainfallPrediction
 
+
+def _export_actual_overrides_csv(project_root: str) -> None:
+    """
+    Export ActualRainfall (DB) -> DuBao/data/actual_overrides.csv
+    File này sẽ được prepare_daily_data.py dùng để override rainfall trước khi tạo daily_features.csv.
+    """
+    try:
+        qs = ActualRainfall.objects.all().values('date', 'actual_rainfall').order_by('date')
+        rows = list(qs)
+        if not rows:
+            return
+
+        df = pd.DataFrame(rows)
+        # đảm bảo schema ổn định
+        df = df[['date', 'actual_rainfall']]
+
+        out_path = os.path.join(project_root, 'DuBao', 'data', 'actual_overrides.csv')
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        df.to_csv(out_path, index=False)
+    except Exception as e:
+        # không làm hỏng luồng nhập liệu
+        print(f"Warning: cannot export actual_overrides.csv: {e}")
+
 # Cấu hình đường dẫn mô hình và metrics
 MODEL_CONFIG = {
     'gradient_boosting_weather': {
@@ -430,26 +453,40 @@ def update_actual(request):
                 defaults={'actual_rainfall': actual_rainfall}
             )
 
+            # Export overrides để pipeline/retrain dùng cho dataset train
+            project_root = os.path.join(os.path.dirname(__file__), '..')
+            _export_actual_overrides_csv(project_root)
+
             try:
                 prediction = DailyPrediction.objects.get(date=actual.date)
                 actual.prediction = prediction
                 actual.save()
                 actual.evaluate_error()
-
+                # Auto retrain (theo yêu cầu): nếu sai số cao thì retrain models
                 retrained = False
                 retrain_info = actual.retrain_summary()
 
                 if retrain_info['needs_retrain']:
-                    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'DuBao'))
-                    from run_pipeline import retrain_models
-                    retrain_models()
-                    actual.retrained = True
-                    actual.save()
-                    retrained = True
+                    try:
+                        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'DuBao'))
+                        from run_pipeline import retrain_models
+                        retrain_models()
+                        actual.retrained = True
+                        actual.save()
+                        retrained = True
+                    except Exception as e:
+                        # vẫn trả success vì actual đã lưu + đã tính error; chỉ báo retrain lỗi
+                        return JsonResponse({
+                            'success': True,
+                            'message': (
+                                f'Đã cập nhật actual rainfall cho ngày {actual.date}. '
+                                f'Nhưng retrain lỗi: {str(e)}. {retrain_info["details"]}'
+                            )
+                        })
 
                 message = f'Đã cập nhật actual rainfall cho ngày {actual.date}. '
                 if retrained:
-                    message += f"Sai lệch lớn ({retrain_info['max_pct']:.1f}%), hệ thống đang retrain."
+                    message += f"Sai lệch lớn ({retrain_info['max_pct']:.1f}%), hệ thống đã retrain."
                 else:
                     message += f"Sai lệch nhỏ ({retrain_info['max_pct']:.1f}%); không cần retrain."
 
@@ -476,17 +513,25 @@ def daily_predict(request):
 
     if request.method == 'POST':
         try:
-            # Dùng hệ daily_ml_system (2-stage) để dự đoán ngày mai
+            # Dùng daily_ml_system (2-stage) để dự đoán ngày mai (không tự lưu DB, không auto job).
+            # Import từ DuBao/src để tránh phụ thuộc service layer.
             dubao_src = os.path.join(os.path.dirname(__file__), '..', 'DuBao', 'src')
-            sys.path.insert(0, dubao_src)
-            from daily_ml_system.predict_daily import predict_tomorrow
-            from daily_ml_system.evaluate import full_report
-            from daily_ml_system import config as ml_cfg
+            sys.path.insert(0, os.path.abspath(dubao_src))
 
-            _target_from_data, prediction_date, preds, probs = predict_tomorrow()
-            # Hiển thị "ngày mai" theo lịch thật (nút UI), không phải theo ngày cuối trong CSV
+            from daily_ml_system.predict_daily import predict_tomorrow_detail  # type: ignore
+            from daily_ml_system.evaluate import full_report  # type: ignore
+            from daily_ml_system import config as ml_cfg  # type: ignore
+
+            detail = predict_tomorrow_detail()
+            prediction_date = detail["prediction_date"]
+            prob = detail["prob"]
+            mm_if_rain = detail["mm_if_rain"]
+            expected_mm = detail["expected_mm"]
+            thresholds = detail["thresholds"]
+
             calendar_tomorrow = datetime.now().date() + timedelta(days=1)
             rain_th = 0.5
+            rain_th_by_model = {}
             try:
                 # bundle lưu threshold nếu có
                 import pickle
@@ -494,6 +539,7 @@ def daily_predict(request):
                     with open(ml_cfg.MODEL_BUNDLE_PATH, 'rb') as f:
                         b = pickle.load(f)
                     rain_th = float(b.get('rain_prob_threshold', rain_th))
+                    rain_th_by_model = b.get('rain_prob_thresholds') or {}
             except Exception:
                 pass
 
@@ -507,15 +553,20 @@ def daily_predict(request):
 
             context.update({
                 'predictions': {
-                    'rf': round(float(preds.get('rf', 0.0)), 2),
-                    'xgb': round(float(preds.get('xgb', 0.0)), 2),
-                    'et': round(float(preds.get('et', 0.0)), 2),
-                    'rf_prob': round(float(probs.get('rf', 0.0)) * 100, 1),
-                    'xgb_prob': round(float(probs.get('xgb', 0.0)) * 100, 1),
-                    'et_prob': round(float(probs.get('et', 0.0)) * 100, 1),
-                    'rf_has_rain': bool(probs.get('rf', 0.0) >= rain_th),
-                    'xgb_has_rain': bool(probs.get('xgb', 0.0) >= rain_th),
-                    'et_has_rain': bool(probs.get('et', 0.0) >= rain_th),
+                    # Chuẩn "dự báo chuyên nghiệp": hiển thị expected mm + mm_if_rain + PoP
+                    'rf': round(float(expected_mm.get('rf', 0.0)), 2),
+                    'xgb': round(float(expected_mm.get('xgb', 0.0)), 2),
+                    'et': round(float(expected_mm.get('et', 0.0)), 2),
+                    'rf_if_rain': round(float(mm_if_rain.get('rf', 0.0)), 2),
+                    'xgb_if_rain': round(float(mm_if_rain.get('xgb', 0.0)), 2),
+                    'et_if_rain': round(float(mm_if_rain.get('et', 0.0)), 2),
+                    'rf_prob': round(float(prob.get('rf', 0.0)) * 100, 1),
+                    'xgb_prob': round(float(prob.get('xgb', 0.0)) * 100, 1),
+                    'et_prob': round(float(prob.get('et', 0.0)) * 100, 1),
+                    # threshold nội bộ theo model (bundle) để tham khảo
+                    'rain_threshold_rf': round(float(thresholds.get('rf', rain_th)) * 100, 0),
+                    'rain_threshold_xgb': round(float(thresholds.get('xgb', rain_th)) * 100, 0),
+                    'rain_threshold_et': round(float(thresholds.get('et', rain_th)) * 100, 0),
                     'rain_threshold': round(float(rain_th) * 100, 0),
                 },
                 'best_model': best_model,
@@ -546,6 +597,10 @@ def actual_input(request):
                     defaults={'actual_rainfall': float(actual_rainfall)}
                 )
 
+                # Export overrides để pipeline/retrain dùng cho dataset train
+                project_root = os.path.join(os.path.dirname(__file__), '..')
+                _export_actual_overrides_csv(project_root)
+
                 # Tìm prediction tương ứng
                 try:
                     prediction = DailyPrediction.objects.get(date=actual.date)
@@ -554,11 +609,9 @@ def actual_input(request):
 
                     # Tính sai số
                     actual.evaluate_error()
-
-                    # Kiểm tra retrain
-                    retrain_info = actual.retrain_summary()
                     action = 'cập nhật' if not created else 'lưu'
-
+                    # Auto retrain (bắt buộc): nếu sai số cao thì retrain models
+                    retrain_info = actual.retrain_summary()
                     if retrain_info['needs_retrain']:
                         try:
                             sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'DuBao'))
@@ -568,7 +621,7 @@ def actual_input(request):
                             actual.save()
                             messages.success(request, (
                                 f"Đã {action} actual rainfall cho ngày {actual.date}. "
-                                f"Sai lệch lớn ({retrain_info['max_pct']:.1f}%), hệ thống đang retrain. "
+                                f"Sai lệch lớn ({retrain_info['max_pct']:.1f}%), hệ thống đã retrain. "
                                 f"{retrain_info['details']}"
                             ))
                         except Exception as e:

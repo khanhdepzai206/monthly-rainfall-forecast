@@ -14,6 +14,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 import logging
 import traceback
+from datetime import date as _date
+from datetime import datetime as _dt
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +24,127 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'DuBao'))
 
 from src.predict_best_model import predict_with_best_model
 from src.predict import predict_rainfall_daily_two_stage
+from .models import DailyPrediction
 
 # Cấu hình đường dẫn mô hình
 MODELS_DIR = os.path.join(os.path.dirname(__file__), '..', 'DuBao', 'models')
 DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'DuBao', 'data')
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def predict_tomorrow_compare_api(request):
+    """
+    API: Trả về dự đoán ngày mai cho 3 mô hình (XGB/ExtraTrees/RF) của daily_ml_system (2-stage).
+
+    Response:
+    {
+      "success": true,
+      "date": "YYYY-MM-DD",
+      "models": [
+        {"model":"XGBoost","has_rain":true,"rain_probability":0.62,"predicted_rainfall":3.1},
+        ...
+      ]
+    }
+    """
+    try:
+        # legacy behavior: daily_ml_system may not be installed/configured
+        # Keep endpoint but degrade gracefully if module is missing.
+        dubao_src = os.path.join(os.path.dirname(__file__), '..', 'DuBao', 'src')
+        sys.path.insert(0, os.path.abspath(dubao_src))
+
+        from daily_ml_system.predict_daily import predict_tomorrow_detail  # type: ignore
+
+        d = predict_tomorrow_detail()
+        target_date = d["target_date"]
+        prediction_date = d["prediction_date"]
+        prob = d["prob"]
+        mm_if_rain = d["mm_if_rain"]
+        expected_mm = d["expected_mm"]
+
+        # UI wants tomorrow by calendar date
+        import datetime as _dt2
+        calendar_tomorrow = _dt2.date.today() + _dt2.timedelta(days=1)
+
+        models = [
+            ("XGBoost", "xgb"),
+            ("Extra Trees", "et"),
+            ("Random Forest", "rf"),
+        ]
+        models_data = []
+        models_map = {}
+        for label, key in models:
+            pr = float(prob.get(key, 0.0) or 0.0)
+            mm_rain = float(mm_if_rain.get(key, 0.0) or 0.0)
+            mm_exp = float(expected_mm.get(key, 0.0) or 0.0)
+            payload = {
+                "model": label,
+                "rain_probability": round(pr, 4),
+                # chuẩn chuyên nghiệp: dùng expected mm làm predicted_rainfall
+                "predicted_rainfall": round(mm_exp, 2),
+                "rainfall_if_rain": round(mm_rain, 2),
+            }
+            models_data.append(payload)
+            models_map[label] = payload
+
+        return JsonResponse({
+            "success": True,
+            # date: giữ lại target_date theo dữ liệu để debug/đối chiếu
+            "date": target_date.strftime("%Y-%m-%d"),
+            # date_label: dùng để hiển thị cho người dùng
+            "date_label": calendar_tomorrow.strftime("%Y-%m-%d"),
+            "data_as_of": pd.Timestamp(prediction_date).strftime("%Y-%m-%d"),
+            "models": models_data,
+        })
+    except Exception as e:
+        logger.error(f"predict_tomorrow_compare_api error: {str(e)}")
+        logger.error(traceback.format_exc())
+        return JsonResponse({
+            "success": False,
+            "error": str(e),
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def daily_predictions_api(request):
+    """
+    API: Trả về danh sách dự đoán theo ngày đã lưu trong DB (DailyPrediction).
+
+    Query params:
+    - limit: số bản ghi (default 30, max 365)
+
+    Response:
+    {
+      "success": true,
+      "data": [
+        {"date":"YYYY-MM-DD","rf":1.2,"xgb":2.3,"et":1.8},
+        ...
+      ]
+    }
+    """
+    try:
+        try:
+            limit = int(request.GET.get("limit", 30))
+        except ValueError:
+            limit = 30
+        limit = max(1, min(limit, 365))
+
+        qs = DailyPrediction.objects.all().order_by("date")[:limit]
+        rows = []
+        for p in qs:
+            rows.append({
+                "date": p.date.strftime("%Y-%m-%d"),
+                "rf": float(p.rf_pred),
+                "xgb": float(p.xgb_pred),
+                "et": float(p.et_pred if p.et_pred is not None else (p.lr_pred or 0.0)),
+            })
+
+        return JsonResponse({"success": True, "data": rows})
+    except Exception as e:
+        logger.error(f"daily_predictions_api error: {str(e)}")
+        logger.error(traceback.format_exc())
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
 @csrf_exempt
@@ -294,59 +413,51 @@ def model_metrics_api(request):
     API: Lấy metrics của tất cả mô hình
     """
     try:
-        classifier_path = os.path.join(MODELS_DIR, 'daily_classifier.pkl')
-        regressor_path = os.path.join(MODELS_DIR, 'daily_regressor.pkl')
-        
-        # Load dữ liệu để tính test set info
+        # NOTE:
+        # Tránh unpickle các file .pkl cũ vì dễ vỡ do lệch phiên bản numpy/sklearn.
+        # Thay vào đó, ưu tiên đọc metrics từ model_metrics.json (được train script tạo ra).
+
+        # Load dữ liệu để tính test set info (không cần pickle)
         csv_path = os.path.join(DATA_DIR, 'daily_combined.csv')
         df = pd.read_csv(csv_path)
         split_idx = int(len(df) * 0.8)
         test_size = len(df) - split_idx
-        rain_count = ((df.iloc[split_idx:]['rainfall'] > 0).sum() 
-                     if 'rainfall' in df.columns else 0)
-        
-        # Metrics
+        rain_count = int(((df.iloc[split_idx:]['rainfall'] > 0).sum()) if 'rainfall' in df.columns else 0)
+
         classifier_metrics = {}
         regressor_metrics = {}
-        
-        # Classifier metrics
-        if os.path.exists(classifier_path):
-            with open(classifier_path, 'rb') as f:
-                pkg = pickle.load(f)
-            
-            # GradientBoosting là mô hình mặc định được train
-            classifier_metrics['GradientBoosting'] = {
-                'accuracy': 0.84,
-                'precision': 0.77,
-                'recall': 0.84,
-                'f1': 0.81
-            }
-        
-        # Regressor metrics
-        if os.path.exists(regressor_path):
-            with open(regressor_path, 'rb') as f:
-                pkg = pickle.load(f)
-            
-            regressor_metrics['GradientBoosting'] = {
-                'mae': 8.87,
-                'rmse': 26.54,
-                'r2': 0.6421,
-                'mape': 14.23
-            }
-        
-        # Thêm từ evaluation_results nếu có
-        eval_path = os.path.join(MODELS_DIR, 'evaluation_results.pkl')
-        if os.path.exists(eval_path):
+
+        metrics_path = os.path.join(MODELS_DIR, "model_metrics.json")
+        if os.path.exists(metrics_path):
             try:
-                with open(eval_path, 'rb') as f:
-                    eval_results = pickle.load(f)
-                
-                if 'classifier_results' in eval_results:
-                    classifier_metrics.update(eval_results['classifier_results'])
-                if 'regressor_results' in eval_results:
-                    regressor_metrics.update(eval_results['regressor_results'])
-            except:
-                pass
+                with open(metrics_path, "r", encoding="utf-8") as f:
+                    mj = json.load(f) or {}
+            except Exception:
+                mj = {}
+
+            # keys example: daily_two_stage_gradient_boosting, daily_two_stage_random_forest, daily_two_stage_extra_trees
+            for key, m in mj.items():
+                if not str(key).startswith("daily_two_stage_"):
+                    continue
+                name = str(key).replace("daily_two_stage_", "").replace("_", " ").title()
+                cls_acc = m.get("cls_accuracy")
+                cls_f1 = m.get("cls_f1")
+                reg_mae = m.get("reg_mae")
+                reg_rmse = m.get("reg_rmse")
+                reg_r2 = m.get("reg_r2")
+
+                classifier_metrics[name] = {
+                    "accuracy": float(cls_acc) if cls_acc is not None else None,
+                    "precision": None,
+                    "recall": None,
+                    "f1": float(cls_f1) if cls_f1 is not None else None,
+                }
+                regressor_metrics[name] = {
+                    "mae": float(reg_mae) if reg_mae is not None else None,
+                    "rmse": float(reg_rmse) if reg_rmse is not None else None,
+                    "r2": float(reg_r2) if reg_r2 is not None else None,
+                    "mape": None,
+                }
         
         return JsonResponse({
             'success': True,

@@ -13,9 +13,10 @@ urlpatterns = [
     # legacy/advanced pages (kept for reference)
     path('predict-daily/', views.predict_daily, name='predict_daily'),
     path('model-metrics-old/', views.model_metrics, name='model_metrics_old'),
-    path('history/', views.prediction_history, name='prediction_history'),
+    # history page removed (no longer exposed)
     path('comparison-old/', views.comparison, name='comparison_old'),
-    path('compare-two/', views.compare_two, name='compare_two'),
+    # replace compare-two with chart page
+    path('compare-two/', views.comparison, name='compare_two'),
     path('update-actual/', views.update_actual, name='update_actual'),
     path('daily-predict/', views.daily_predict, name='daily_predict'),
     path('actual-input/', views.actual_input, name='actual_input'),
@@ -30,6 +31,8 @@ urlpatterns = [
     path('api/predict/', api_views.predict_daily_api, name='api_predict'),
     path('api/predict-range/', api_views.predict_range_api, name='api_predict_range'),
     path('api/predict-compare/', api_views.predict_compare_models_api, name='api_predict_compare'),
+    path('api/predict-tomorrow-compare/', api_views.predict_tomorrow_compare_api, name='api_predict_tomorrow_compare'),
+    path('api/daily-predictions/', api_views.daily_predictions_api, name='api_daily_predictions'),
     path('api/model-info/', api_views.model_info_api, name='api_model_info'),
     path('api/model-metrics/', api_views.model_metrics_api, name='api_model_metrics'),
 ]

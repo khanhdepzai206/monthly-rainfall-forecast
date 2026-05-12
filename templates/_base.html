@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Dự báo lượng mưa{% endblock %}</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg0:#0b1220;
+      --bg1:#0f172a;
+      --card:#0b1220cc;
+      --card2:#111827cc;
+      --stroke:rgba(255,255,255,.08);
+      --text:rgba(255,255,255,.92);
+      --muted:rgba(255,255,255,.68);
+      --brand1:#7c3aed;
+      --brand2:#22d3ee;
+      --brand3:#34d399;
+      --shadow: 0 18px 50px rgba(0,0,0,.35);
+    }
+
+    body{
+      min-height:100vh;
+      background:
+        radial-gradient(1200px 600px at 10% 10%, rgba(124,58,237,.30), transparent 55%),
+        radial-gradient(900px 500px at 90% 15%, rgba(34,211,238,.25), transparent 55%),
+        radial-gradient(1000px 700px at 50% 110%, rgba(52,211,153,.18), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* Animated background layer */
+    .bg-anim{
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      opacity: .95;
+    }
+    .bg-anim::before{
+      content:"";
+      position:absolute;
+      inset:-30%;
+      background:
+        radial-gradient(closest-side at 20% 20%, rgba(124,58,237,.45), transparent 55%),
+        radial-gradient(closest-side at 80% 30%, rgba(34,211,238,.35), transparent 55%),
+        radial-gradient(closest-side at 50% 80%, rgba(52,211,153,.25), transparent 55%);
+      filter: blur(30px);
+      transform: translateZ(0);
+      animation: floatBlobs 14s ease-in-out infinite alternate;
+    }
+    .bg-anim::after{
+      content:"";
+      position:absolute;
+      inset:-40%;
+      background: conic-gradient(from 180deg at 50% 50%,
+        rgba(124,58,237,.18),
+        rgba(34,211,238,.14),
+        rgba(52,211,153,.12),
+        rgba(124,58,237,.18));
+      filter: blur(60px);
+      opacity: .55;
+      animation: slowSpin 22s linear infinite;
+    }
+    @keyframes floatBlobs{
+      0%{ transform: translate(-2%, -1%) scale(1.02); }
+      50%{ transform: translate(2%, 1%) scale(1.05); }
+      100%{ transform: translate(-1%, 2%) scale(1.03); }
+    }
+    @keyframes slowSpin{
+      from{ transform: rotate(0deg); }
+      to{ transform: rotate(360deg); }
+    }
+
+    .app-shell{
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 22px 16px 40px 16px;
+    }
+
+    .app-nav{
+      backdrop-filter: blur(14px);
+      background: rgba(17,24,39,.55);
+      border:1px solid var(--stroke);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .brand-dot{
+      width:10px;height:10px;border-radius:999px;
+      background: linear-gradient(135deg, var(--brand1), var(--brand2));
+      display:inline-block;margin-right:10px;
+      box-shadow: 0 0 0 4px rgba(124,58,237,.10);
+    }
+
+    .nav-link{
+      color: var(--muted) !important;
+      font-weight: 600;
+      border-radius: 12px;
+      padding: 10px 12px !important;
+    }
+    .nav-link:visited{
+      color: var(--muted) !important;
+    }
+    .nav-link:hover{
+      background: rgba(255,255,255,.06);
+      color: var(--text) !important;
+    }
+    .nav-link.active{
+      color: var(--text) !important;
+      background: linear-gradient(135deg, rgba(124,58,237,.22), rgba(34,211,238,.14));
+      border: 1px solid rgba(255,255,255,.08);
+    }
+
+    .glass-card{
+      backdrop-filter: blur(14px);
+      background: rgba(17,24,39,.55);
+      border:1px solid var(--stroke);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+    .glass-card:hover{
+      border-color: rgba(255,255,255,.12);
+    }
+
+    h1, h2, h3, h4, h5, h6{
+      color: var(--text);
+    }
+
+    a{
+      color: rgba(34,211,238,.92);
+      text-decoration: none;
+    }
+    a:hover{
+      color: rgba(34,211,238,1);
+      text-decoration: underline;
+    }
+    a:visited{
+      color: rgba(34,211,238,.92);
+    }
+
+    .page-title{
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin: 6px 0 2px 0;
+    }
+    .page-subtitle{
+      color: var(--muted);
+      margin: 0 0 14px 0;
+    }
+
+    .btn-brand{
+      border: 0;
+      color: #061018;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--brand1), var(--brand2));
+      border-radius: 14px;
+      padding: 10px 14px;
+      box-shadow: 0 12px 28px rgba(34,211,238,.10);
+    }
+    .btn-brand:hover{ filter: brightness(1.03); }
+
+    .btn-soft{
+      border-radius: 14px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      font-weight: 700;
+      padding: 10px 14px;
+    }
+    .btn-soft:hover{ background: rgba(255,255,255,.10); color: var(--text); }
+
+    .form-control, .form-select{
+      border-radius: 14px !important;
+      border: 1px solid rgba(255,255,255,.14) !important;
+      background: rgba(255,255,255,.06) !important;
+      color: var(--text) !important;
+    }
+    .form-control::placeholder{ color: rgba(255,255,255,.45) !important; }
+    .form-control:focus, .form-select:focus{
+      box-shadow: 0 0 0 .25rem rgba(124,58,237,.18) !important;
+      border-color: rgba(124,58,237,.40) !important;
+    }
+    /* Fix dropdown <option>: trinh duyet ve panel mau trang nen chu trang khong doc duoc */
+    .form-select option,
+    .form-select optgroup,
+    select option,
+    select optgroup{
+      background-color: #0f172a !important;
+      color: var(--text) !important;
+    }
+    .form-select option:checked,
+    .form-select option:hover,
+    select option:checked,
+    select option:hover{
+      background: linear-gradient(135deg, rgba(124,58,237,.55), rgba(34,211,238,.35)) !important;
+      color: #fff !important;
+    }
+    /* Cho rieng Firefox/Chrome tren Windows: ep dark scheme cho native popup */
+    .form-select, select{
+      color-scheme: dark;
+    }
+
+    .muted{ color: var(--muted); }
+    .divider{ border-top:1px solid var(--stroke); }
+    footer{ color: rgba(255,255,255,.55); font-size: 13px; padding-top: 18px; }
+
+    /* Subtle entrance animation */
+    .fade-up{
+      animation: fadeUp .45s ease-out both;
+    }
+    @keyframes fadeUp{
+      from{ opacity:0; transform: translateY(10px); }
+      to{ opacity:1; transform: translateY(0); }
+    }
+
+    /* Respect reduced motion */
+    @media (prefers-reduced-motion: reduce){
+      .bg-anim::before, .bg-anim::after, .fade-up{
+        animation: none !important;
+      }
+    }
+  </style>
+
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+  <div class="bg-anim"></div>
+  <div class="app-shell">
+    <nav class="navbar navbar-expand-lg app-nav px-3 py-2">
+      <div class="container-fluid px-0">
+        <a class="navbar-brand fw-bold text-white" href="/">
+          <span class="brand-dot"></span>
+          <i class="fa-solid fa-cloud-sun-rain me-2"></i>Dự báo lượng mưa
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" aria-controls="navMain" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navMain">
+          <ul class="navbar-nav ms-auto align-items-lg-center gap-1">
+            <li class="nav-item"><a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link {% if '/metrics' in request.path %}active{% endif %}" href="/metrics/">Metrics</a></li>
+            <li class="nav-item"><a class="nav-link {% if '/predict/' in request.path %}active{% endif %}" href="/predict/">Dự đoán</a></li>
+            <li class="nav-item"><a class="nav-link {% if '/daily-predict' in request.path %}active{% endif %}" href="/daily-predict/">Ngày mai</a></li>
+            <li class="nav-item"><a class="nav-link {% if '/actual-input' in request.path %}active{% endif %}" href="/actual-input/">Nhập Actual</a></li>
+            <li class="nav-item"><a class="nav-link {% if '/compare' in request.path %}active{% endif %}" href="/compare/">Biểu đồ</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <main class="mt-4">
+      <div class="fade-up">
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+
+    <footer class="text-center">
+      <div class="divider my-3"></div>
+      © 2026 Rainfall Project
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
+

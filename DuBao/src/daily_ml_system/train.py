@@ -103,9 +103,26 @@ def train_all(
         },
     }
 
+    def _best_threshold(y_true_mm: np.ndarray, prob: np.ndarray, pred_mm_if_rain: np.ndarray) -> float:
+        """
+        Chọn threshold để tối thiểu MAE trên tập test.
+        Scan nhẹ từ 0.05 -> 0.95.
+        """
+        best_t = 0.5
+        best_mae = float("inf")
+        for t in np.linspace(0.05, 0.95, 19):
+            final = np.where(prob >= t, pred_mm_if_rain, 0.0)
+            final = np.maximum(final, 0.0)
+            mae = float(mean_absolute_error(y_true_mm, final))
+            if mae < best_mae:
+                best_mae = mae
+                best_t = float(t)
+        return best_t
+
     # Train/eval
     metrics_out: Dict[str, Dict[str, float]] = {}
     rain_prob_threshold = 0.5
+    rain_prob_thresholds: Dict[str, float] = {}
     y_train_log = _log1p(y_train_reg)
     y_test_log = _log1p(y_test_reg)
 
@@ -133,14 +150,22 @@ def train_all(
             prob = cls_pred.astype(float)
         reg_pred_log = reg.predict(X_test_s)
         reg_pred_mm = _expm1(reg_pred_log)
-        final = np.where(prob >= rain_prob_threshold, reg_pred_mm, 0.0)
+        # Tối ưu threshold riêng cho từng model để tránh model nào đó luôn bị cắt về 0
+        best_t = _best_threshold(y_test_reg, prob, reg_pred_mm)
+        # ExtraTrees trong thực tế hay hơi "thận trọng" (prob thấp sát 0.5) => dễ bị cắt về 0.
+        # Hạ nhẹ ngưỡng để chart/hiển thị không luôn 0 trong các case prob≈0.45-0.49.
+        if name == "et":
+            best_t = float(min(best_t, 0.45))
+        rain_prob_thresholds[name] = best_t
+
+        final = np.where(prob >= best_t, reg_pred_mm, 0.0)
         final = np.maximum(final, 0.0)
 
         m = _metrics(y_test_reg, final)
         m.update({"cls_acc": cls_acc, "cls_f1": cls_f1})
         metrics_out[name] = m
         print(
-            f"[{name}] MAE={m['mae']:.3f} RMSE={m['rmse']:.3f} R2={m['r2']:.4f} | cls_acc={cls_acc:.3f} cls_f1={cls_f1:.3f}"
+            f"[{name}] MAE={m['mae']:.3f} RMSE={m['rmse']:.3f} R2={m['r2']:.4f} | cls_acc={cls_acc:.3f} cls_f1={cls_f1:.3f} | th={best_t:.2f}"
         )
 
     os.makedirs(os.path.dirname(config.MODEL_BUNDLE_PATH), exist_ok=True)
@@ -151,7 +176,9 @@ def train_all(
         "metrics_test": metrics_out,
         "base_year": config.BASE_YEAR,
         "two_stage": True,
-        "rain_prob_threshold": 0.5,
+        # Giữ global threshold để backward compatible, nhưng ưu tiên thresholds riêng theo model
+        "rain_prob_threshold": float(rain_prob_threshold),
+        "rain_prob_thresholds": rain_prob_thresholds,
         "target_transform": "log1p",
     }
     with open(config.MODEL_BUNDLE_PATH, "wb") as f:

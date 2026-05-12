@@ -1,145 +1,27 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nhập Lượng Mưa Thực Tế - Cải Thiện Mô Hình</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .container {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            padding: 30px;
-            margin-top: 30px;
-            margin-bottom: 30px;
-        }
-        .header-section {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .header-section h1 {
-            color: #2c3e50;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
-        .header-section p {
-            color: #7f8c8d;
-            font-size: 1.1em;
-        }
-        .form-section {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 25px;
-            margin-bottom: 30px;
-        }
-        .form-control:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-        }
-        .btn-submit {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            border: none;
-            padding: 12px 30px;
-            border-radius: 25px;
-            color: white;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        .btn-submit:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
-        }
-        .actual-card {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 15px;
-            transition: all 0.3s ease;
-        }
-        .actual-card:hover {
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        }
-        .date-badge {
-            background: #667eea;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 0.9em;
-            display: inline-block;
-            margin-bottom: 10px;
-        }
-        .prediction-comparison {
-            display: flex;
-            justify-content: space-around;
-            margin: 15px 0;
-        }
-        .pred-item {
-            text-align: center;
-            padding: 10px;
-            background: white;
-            border-radius: 8px;
-            border: 1px solid #dee2e6;
-            flex: 1;
-            margin: 0 5px;
-        }
-        .pred-label {
-            font-size: 0.8em;
-            color: #6c757d;
-            margin-bottom: 5px;
-        }
-        .pred-value {
-            font-size: 1.2em;
-            font-weight: 600;
-            color: #007bff;
-        }
-        .actual-value {
-            font-size: 1.5em;
-            font-weight: 700;
-            color: #28a745;
-        }
-        .error-info {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 5px;
-            padding: 10px;
-            margin-top: 10px;
-            font-size: 0.9em;
-        }
-        .retrain-badge {
-            background: #dc3545;
-            color: white;
-            padding: 3px 8px;
-            border-radius: 10px;
-            font-size: 0.8em;
-            display: inline-block;
-            margin-left: 10px;
-        }
-        .alert {
-            border-radius: 10px;
-            border: none;
-        }
-        .no-data {
-            text-align: center;
-            color: #6c757d;
-            font-style: italic;
-            padding: 40px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header-section">
-            <h1><i class="fas fa-edit text-primary"></i> Nhập Lượng Mưa Thực Tế</h1>
-            <p>Cập nhật dữ liệu thực tế để cải thiện độ chính xác của mô hình dự báo</p>
-        </div>
+{% extends "_base.html" %}
+
+{% block title %}Nhập Actual — Dự báo lượng mưa{% endblock %}
+
+{% block extra_css %}
+<style>
+  .panel-soft{ background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.10); border-radius: 18px; }
+  .actual-card{ background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.10); border-radius: 18px; padding: 16px; }
+  .badge-pill{ border:1px solid rgba(255,255,255,.10); background: rgba(255,255,255,.06); color: rgba(255,255,255,.90); border-radius: 999px; padding: 6px 10px; font-weight: 800; }
+  .value-big{ font-size: 1.7rem; font-weight: 900; letter-spacing:-0.02em; }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="glass-card p-4 p-md-5">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-2">
+      <div>
+        <h1 class="page-title"><i class="fa-solid fa-pen-to-square me-2"></i>Nhập lượng mưa thực tế</h1>
+        <p class="page-subtitle">Lưu “actual” để tính sai số và phục vụ retrain.</p>
+      </div>
+      <a class="btn btn-soft" href="/daily-predict/"><i class="fa-solid fa-cloud-sun-rain me-2"></i>Ngày mai</a>
+    </div>
+
+    <div class="divider my-4"></div>
 
         {% if messages %}
         {% for message in messages %}
@@ -149,10 +31,10 @@
         {% endfor %}
         {% endif %}
 
-        <div class="row">
+        <div class="row g-3">
             <div class="col-md-5">
-                <div class="form-section">
-                    <h5><i class="fas fa-plus-circle"></i> Thêm Dữ Liệu Thực Tế</h5>
+                <div class="panel-soft p-4">
+                    <h5 class="mb-3"><i class="fa-solid fa-plus me-2"></i>Thêm dữ liệu</h5>
                     <form method="post">
                         {% csrf_token %}
                         <div class="mb-3">
@@ -171,34 +53,30 @@
                             {% endif %}
                         </div>
 
-                        <button type="submit" class="btn btn-submit w-100">
-                            <i class="fas fa-save"></i> Lưu Dữ Liệu
+                        <button type="submit" class="btn btn-brand w-100">
+                            <i class="fa-solid fa-floppy-disk me-2"></i>Lưu
                         </button>
                     </form>
                 </div>
             </div>
 
             <div class="col-md-7">
-                <h5><i class="fas fa-history"></i> Dữ Liệu Gần Đây</h5>
+                <h5 class="mb-3"><i class="fa-solid fa-clock-rotate-left me-2"></i>Dữ liệu gần đây</h5>
 
                 {% if recent_actuals %}
                     {% for actual in recent_actuals %}
-                    <div class="actual-card">
+                    <div class="actual-card mb-3">
                         <div class="d-flex justify-content-between align-items-start">
-                            <div class="date-badge">
-                                <i class="fas fa-calendar"></i>
-                                {{ actual.date|date:"d/m/Y" }}
+                            <div class="badge-pill">
+                                <i class="fa-regular fa-calendar me-2"></i>{{ actual.date|date:"d/m/Y" }}
                             </div>
                             {% if actual.retrained %}
-                            <div class="retrain-badge">
-                                <i class="fas fa-sync"></i> Đã Retrain
-                            </div>
+                              <div class="badge text-bg-danger"><i class="fa-solid fa-rotate me-2"></i>Đã retrain</div>
                             {% endif %}
                         </div>
 
-                        <div class="actual-value">
-                            <i class="fas fa-tint text-primary"></i>
-                            {{ actual.actual_rainfall }} mm
+                        <div class="value-big mt-2">
+                          <i class="fa-solid fa-droplet me-2"></i>{{ actual.actual_rainfall }} mm
                         </div>
 
                         {% if actual.prediction %}
@@ -218,10 +96,10 @@
                                 {% endif %}
                             </div>
                             <div class="pred-item">
-                                <div class="pred-label">LinearReg</div>
-                                <div class="pred-value">{{ actual.prediction.lr_pred|floatformat:3 }} mm</div>
-                                {% if actual.lr_error is not None %}
-                                <div class="text-muted small">Error: {{ actual.lr_error|floatformat:3 }} {% if actual.lr_error_pct is not None %}({{ actual.lr_error_pct|floatformat:1 }}%){% else %}(N/A){% endif %}</div>
+                                <div class="pred-label">ExtraTrees</div>
+                                <div class="pred-value">{{ actual.prediction.et_pred|default:actual.prediction.lr_pred|floatformat:3 }} mm</div>
+                                {% if actual.et_error is not None or actual.lr_error is not None %}
+                                <div class="text-muted small">Error: {{ actual.et_error|default:actual.lr_error|floatformat:3 }} {% if actual.et_error_pct is not None %}({{ actual.et_error_pct|floatformat:1 }}%){% else %}(N/A){% endif %}</div>
                                 {% endif %}
                             </div>
                         </div>
@@ -261,8 +139,5 @@
                 <li>Dữ liệu càng nhiều, mô hình càng chính xác</li>
             </ul>
         </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+  </div>
+{% endblock %}

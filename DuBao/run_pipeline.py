@@ -78,16 +78,21 @@ def retrain_models():
     """
     Retrain tất cả 3 models với dữ liệu mới nhất.
     """
-    print("🔄 Retraining models...")
+    # Tránh lỗi encoding trên Windows console (cp1252) do emoji
+    print("[Retrain] Retraining models...")
 
     # Import train function
     sys.path.insert(0, SRC_DIR)
     try:
+        # Rebuild daily_features.csv first (and apply actual overrides if present)
+        from prepare_daily_data import prepare_daily_data
+        prepare_daily_data()
+
         from train_daily_models import train_daily_models
         train_daily_models()
-        print("✅ Models retrained successfully")
+        print("[Retrain] Models retrained successfully")
     except Exception as e:
-        print(f"❌ Retrain failed: {e}")
+        print(f"[Retrain] Retrain failed: {e}")
         raise
 
 

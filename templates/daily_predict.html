@@ -1,226 +1,125 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dự Báo Lượng Mưa Ngày Mai - 3 Mô Hình ML</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .container {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            padding: 30px;
-            margin-top: 30px;
-            margin-bottom: 30px;
-        }
-        .header-section {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .header-section h1 {
-            color: #2c3e50;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
-        .header-section p {
-            color: #7f8c8d;
-            font-size: 1.1em;
-        }
-        .predict-btn {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            border: none;
-            padding: 15px 40px;
-            border-radius: 25px;
-            color: white;
-            font-weight: 600;
-            font-size: 1.1em;
-            transition: all 0.3s ease;
-            margin: 20px 0;
-        }
-        .predict-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
-        }
-        .predict-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        .prediction-card {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 10px;
-            padding: 25px;
-            margin: 20px 0;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-        .prediction-card:hover {
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        }
-        .model-name {
-            font-weight: bold;
-            color: #495057;
-            margin-bottom: 10px;
-            font-size: 1.1em;
-        }
-        .prediction-value {
-            font-size: 2.5em;
-            font-weight: 700;
-            color: #007bff;
-            margin: 10px 0;
-        }
-        .unit {
-            font-size: 0.8em;
-            color: #6c757d;
-            font-weight: normal;
-        }
-        .best-model-badge {
-            background: linear-gradient(45deg, #28a745, #20c997);
-            color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            display: inline-block;
-            margin-top: 10px;
-            box-shadow: 0 2px 5px rgba(40, 167, 69, 0.3);
-        }
-        .alert {
-            border-radius: 10px;
-            border: none;
-        }
-        .loading {
-            display: none;
-            text-align: center;
-            margin: 20px 0;
-        }
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            margin-right: 10px;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header-section">
-            <h1><i class="fas fa-cloud-sun-rain text-primary"></i> Dự Báo Lượng Mưa Ngày Mai</h1>
-            <p>Sử dụng 3 mô hình Machine Learning (2 bước): RandomForest, XGBoost, ExtraTrees</p>
-        </div>
+{% extends "_base.html" %}
+
+{% block title %}Ngày mai — Dự báo lượng mưa{% endblock %}
+
+{% block extra_css %}
+<style>
+  .prediction-tile{ background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.10); border-radius: 18px; padding: 18px; height: 100%; }
+  .prediction-value{ font-size: 2.4rem; font-weight: 900; letter-spacing:-0.02em; }
+  .subline{ color: rgba(255,255,255,.72); font-size: 0.95em; }
+  .badge-best{ background: linear-gradient(135deg, rgba(52,211,153,.35), rgba(34,211,238,.18)); border:1px solid rgba(255,255,255,.10); color: rgba(255,255,255,.92); border-radius: 999px; padding: 8px 12px; font-weight: 800; display:inline-block; }
+  .loading{ display:none; }
+  .spinner-dot{
+    width: 18px; height: 18px; border-radius: 999px;
+    border: 3px solid rgba(255,255,255,.18);
+    border-top-color: rgba(124,58,237,.9);
+    animation: spin 1s linear infinite;
+    display:inline-block;
+  }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="glass-card p-4 p-md-5">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-2">
+      <div>
+        <h1 class="page-title"><i class="fa-solid fa-cloud-sun-rain me-2"></i>Dự báo ngày mai</h1>
+        <p class="page-subtitle">3 mô hình 2-stage: RandomForest / XGBoost / ExtraTrees.</p>
+      </div>
+      <a class="btn btn-soft" href="/compare/"><i class="fa-solid fa-chart-line me-2"></i>Biểu đồ</a>
+    </div>
+
+    <div class="divider my-4"></div>
 
         <div class="text-center">
             <form method="post">
                 {% csrf_token %}
-                <button type="submit" class="btn predict-btn" id="predictBtn">
-                    <i class="fas fa-magic"></i> Dự Đoán Ngày Mai
+                <button type="submit" class="btn btn-brand" id="predictBtn">
+                    <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Dự đoán ngày mai
                 </button>
             </form>
 
             <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <span>Đang chạy mô hình ML...</span>
+                <div class="d-flex align-items-center justify-content-center gap-2 mt-3">
+                  <span class="spinner-dot"></span>
+                  <span class="muted">Đang chạy mô hình...</span>
+                </div>
             </div>
         </div>
 
         {% if error %}
         <div class="alert alert-danger">
-            <i class="fas fa-exclamation-triangle"></i>
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>
             <strong>Lỗi:</strong> {{ error }}
         </div>
         {% endif %}
 
         {% if predictions %}
         <div class="alert alert-success">
-            <i class="fas fa-calendar-check"></i>
+            <i class="fa-solid fa-circle-check me-2"></i>
             <strong>Dự đoán cho ngày {{ date }}</strong>
             <div class="mt-2" style="font-size:0.95em">
                 (Dữ liệu đầu vào dùng đến ngày <strong>{{ data_as_of }}</strong> trong file <code>daily_combined.csv</code>)
             </div>
         </div>
         <div class="alert alert-info">
-            <i class="fas fa-info-circle"></i>
-            Ngưỡng xác định “có mưa” theo xác suất: <strong>{{ predictions.rain_threshold }}%</strong>
+            <i class="fa-solid fa-circle-info me-2"></i>
+            PoP = xác suất mưa. “Kỳ vọng (mm)” = PoP × (mm nếu mưa).
         </div>
 
         <div class="row">
             <div class="col-md-4">
-                <div class="prediction-card">
+                <div class="prediction-tile">
                     <div class="model-name">
-                        <i class="fas fa-tree text-success"></i> RandomForest
+                        <i class="fa-solid fa-tree text-success me-2"></i>RandomForest
                     </div>
-                    <div style="color:#6c757d;font-size:0.95em">
-                        Khả năng mưa: <strong>{{ predictions.rf_prob }}%</strong> —
-                        {% if predictions.rf_has_rain %}<strong style="color:#28a745">Có mưa</strong>{% else %}<strong style="color:#6c757d">Không mưa</strong>{% endif %}
-                    </div>
+                    <div class="subline">PoP: <strong>{{ predictions.rf_prob }}%</strong></div>
                     <div class="prediction-value">
                         {{ predictions.rf }}<span class="unit"> mm</span>
                     </div>
+                    <div class="subline">Nếu mưa: <strong>{{ predictions.rf_if_rain }} mm</strong></div>
                     {% if best_model == 'RF' %}
-                    <div class="best-model-badge">
-                        <i class="fas fa-star"></i> Mô Hình Tốt Nhất
-                    </div>
+                      <div class="badge-best"><i class="fa-solid fa-star me-2"></i>Mô hình tốt nhất</div>
                     {% endif %}
                 </div>
             </div>
 
             <div class="col-md-4">
-                <div class="prediction-card">
+                <div class="prediction-tile">
                     <div class="model-name">
-                        <i class="fas fa-rocket text-warning"></i> XGBoost
+                        <i class="fa-solid fa-rocket text-warning me-2"></i>XGBoost
                     </div>
-                    <div style="color:#6c757d;font-size:0.95em">
-                        Khả năng mưa: <strong>{{ predictions.xgb_prob }}%</strong> —
-                        {% if predictions.xgb_has_rain %}<strong style="color:#28a745">Có mưa</strong>{% else %}<strong style="color:#6c757d">Không mưa</strong>{% endif %}
-                    </div>
+                    <div class="subline">PoP: <strong>{{ predictions.xgb_prob }}%</strong></div>
                     <div class="prediction-value">
                         {{ predictions.xgb }}<span class="unit"> mm</span>
                     </div>
+                    <div class="subline">Nếu mưa: <strong>{{ predictions.xgb_if_rain }} mm</strong></div>
                     {% if best_model == 'XGB' %}
-                    <div class="best-model-badge">
-                        <i class="fas fa-star"></i> Mô Hình Tốt Nhất
-                    </div>
+                      <div class="badge-best"><i class="fa-solid fa-star me-2"></i>Mô hình tốt nhất</div>
                     {% endif %}
                 </div>
             </div>
 
             <div class="col-md-4">
-                <div class="prediction-card">
+                <div class="prediction-tile">
                     <div class="model-name">
-                        <i class="fas fa-bolt text-info"></i> ExtraTrees
+                        <i class="fa-solid fa-bolt text-info me-2"></i>ExtraTrees
                     </div>
-                    <div style="color:#6c757d;font-size:0.95em">
-                        Khả năng mưa: <strong>{{ predictions.et_prob }}%</strong> —
-                        {% if predictions.et_has_rain %}<strong style="color:#28a745">Có mưa</strong>{% else %}<strong style="color:#6c757d">Không mưa</strong>{% endif %}
-                    </div>
+                    <div class="subline">PoP: <strong>{{ predictions.et_prob }}%</strong></div>
                     <div class="prediction-value">
                         {{ predictions.et }}<span class="unit"> mm</span>
                     </div>
+                    <div class="subline">Nếu mưa: <strong>{{ predictions.et_if_rain }} mm</strong></div>
                     {% if best_model == 'ET' %}
-                    <div class="best-model-badge">
-                        <i class="fas fa-star"></i> Mô Hình Tốt Nhất
-                    </div>
+                      <div class="badge-best"><i class="fa-solid fa-star me-2"></i>Mô hình tốt nhất</div>
                     {% endif %}
                 </div>
             </div>
         </div>
 
         <div class="alert alert-info">
-            <h6><i class="fas fa-info-circle"></i> Thông Tin</h6>
+            <h6><i class="fa-solid fa-circle-info me-2"></i>Thông tin</h6>
             <ul class="mb-0">
                 <li>Dự đoán dựa trên dữ liệu thời tiết 7 ngày gần nhất</li>
                 <li>Mô hình tốt nhất được xác định dựa trên sai số trung bình</li>
@@ -229,16 +128,27 @@
             </ul>
         </div>
         {% endif %}
-    </div>
+  </div>
+{% endblock %}
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}
     <script>
+        // Reset loading state on page load (after POST response too)
+        document.addEventListener('DOMContentLoaded', function() {
+            const loading = document.getElementById('loading');
+            const btn = document.getElementById('predictBtn');
+            if (loading) loading.style.display = 'none';
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles me-2"></i>Dự đoán ngày mai';
+            }
+        });
+
         // Show loading when form is submitted
         document.querySelector('form').addEventListener('submit', function() {
             document.getElementById('predictBtn').disabled = true;
-            document.getElementById('predictBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang Xử Lý...';
+            document.getElementById('predictBtn').innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Đang xử lý...';
             document.getElementById('loading').style.display = 'block';
         });
     </script>
-</body>
-</html>
+{% endblock %}

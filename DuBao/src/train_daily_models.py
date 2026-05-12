@@ -75,9 +75,10 @@ def train_daily_models():
 
     try:
         df = pd.read_csv(os.path.join(data_dir, 'daily_features.csv'))
-        print(f"✓ Loaded data: {len(df)} samples")
+        # Tránh lỗi encoding Windows console (cp1252) do ký tự Unicode
+        print(f"[Train] Loaded data: {len(df)} samples")
     except Exception as e:
-        print(f"❌ Error loading data: {e}")
+        print(f"[Train] Error loading data: {e}")
         return
 
     feature_cols = _get_feature_columns(df)
@@ -110,7 +111,7 @@ def train_daily_models():
         model_path = os.path.join(models_dir, f'{name}_daily_model.pkl')
         with open(model_path, 'wb') as f:
             pickle.dump(model, f)
-        print(f"✓ Đã lưu model: {model_path}")
+        print(f"[Train] Saved model: {model_path}")
 
     metrics_df = pd.DataFrame({
         'model': list(results.keys()),
@@ -121,10 +122,10 @@ def train_daily_models():
 
     metrics_path = os.path.join(models_dir, 'daily_model_metrics.csv')
     metrics_df.to_csv(metrics_path, index=False)
-    print(f"\n✓ Đã lưu metrics: {metrics_path}")
+    print(f"\n[Train] Saved metrics: {metrics_path}")
 
     best_model = min(results.items(), key=lambda x: x[1]['mae'])
-    print(f"\n🏆 Model tốt nhất: {best_model[0].upper()} (MAE: {best_model[1]['mae']:.4f})")
+    print(f"\n[Train] Best model: {best_model[0].upper()} (MAE: {best_model[1]['mae']:.4f})")
 
     return results
 

@@ -17,6 +17,11 @@
 {% block content %}
 <div class="container-two">
     <h2>So sánh hai mô hình</h2>
+    <div style="margin: 6px 0 18px 0;">
+        Bạn đang ở trang so sánh <strong>metrics</strong> của 2 mô hình.
+        Nếu muốn biểu đồ đường theo <strong>ngày dự đoán (mỗi lần nhập = thêm 1 điểm)</strong>, mở trang
+        <a href="/compare/" style="font-weight:600;">/compare</a>.
+    </div>
     {% if error %}
         <div style="color:red">Error: {{ error }}</div>
     {% endif %}
