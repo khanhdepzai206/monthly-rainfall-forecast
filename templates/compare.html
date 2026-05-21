@@ -4,41 +4,70 @@
 
 {% block extra_css %}
 <style>
-  .panel-soft{ background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.10); border-radius: 18px; }
-  .chart-wrap{ background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.10); border-radius: 18px; padding: 16px; }
-  .chart-title{ font-weight: 900; letter-spacing:-0.02em; }
+  .chart-wrap{ background: linear-gradient(180deg, rgba(255,255,255,.14) 0%, rgba(255,255,255,.07) 100%); border: 1px solid rgba(255,255,255,.16); border-radius: 18px; padding: 16px; backdrop-filter: blur(16px); box-shadow: inset 0 1px 0 rgba(255,255,255,.15); }
+  .chart-title{ font-weight: 750; letter-spacing:-0.02em; color: rgba(255,255,255,.96); }
 
-  /* Improve contrast for inline code on dark glass panels */
-  .panel-soft code{
+  .chart-insights{
+    margin-top: 18px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(0,30,70,.22);
+    color: rgba(255,255,255,.9);
+    font-size: .92rem;
+    line-height: 1.55;
+  }
+  .chart-insights h3{
+    font-size: .95rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.72);
+    margin: 0 0 10px;
+  }
+  .chart-insights ul{ margin: 0; padding-left: 1.15rem; }
+  .chart-insights li{ margin-bottom: .35rem; }
+  .chart-insights .insight-muted{ color: rgba(255,255,255,.62); font-size: .85rem; margin-top: 10px; }
+
+  /* Inline code trên nền kính */
+  .wx-panel code{
     color: rgba(255,255,255,.96);
-    background: rgba(124,58,237,.22);
-    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(0,40,80,.35);
+    border: 1px solid rgba(255,255,255,.18);
     padding: 2px 8px;
     border-radius: 10px;
-    font-weight: 800;
+    font-weight: 700;
   }
 </style>
 {% endblock %}
 
 {% block content %}
-  <div class="glass-card p-4 p-md-5">
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-2">
-      <div>
-        <h1 class="page-title"><i class="fa-solid fa-chart-line me-2"></i>Biểu đồ đường lượng mưa</h1>
-        <p class="page-subtitle">Mỗi lần “Thêm điểm” sẽ lấy dự đoán ngày mai (XGB / ExtraTrees / RandomForest) và thêm vào chart.</p>
-      </div>
-      <div class="d-flex gap-2">
-        <a class="btn btn-soft" href="/daily-predict/"><i class="fa-solid fa-cloud-sun-rain me-2"></i>Ngày mai</a>
-        <a class="btn btn-soft" href="/predict/"><i class="fa-regular fa-calendar me-2"></i>Dự đoán</a>
+  <div class="glass-card p-0 overflow-hidden">
+    <div class="px-4 py-3 px-md-5 py-md-4" style="background: radial-gradient(90% 100% at 100% 0%, rgba(255,255,255,.12), transparent 50%); border-bottom: 1px solid rgba(255,255,255,.1);">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+        <div>
+          <div class="wx-kicker mb-1">Trực quan</div>
+          <h1 class="page-title mb-1"><i class="fa-solid fa-chart-line me-2"></i>Biểu đồ lượng mưa</h1>
+          <p class="page-subtitle mb-0">Mỗi lần “Thêm điểm” ghi nhận dự báo ngày mai (3 mô hình). Đồng bộ từ máy chủ chỉ lấy các mốc dự đoán gần đây — không kéo dữ liệu demo năm 2023 lên biểu đồ.</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <a class="btn btn-soft" href="/daily-predict/"><i class="fa-solid fa-cloud-sun-rain me-2"></i>Ngày mai</a>
+          <a class="btn btn-soft" href="/predict/"><i class="fa-regular fa-calendar me-2"></i>Dự đoán</a>
+        </div>
       </div>
     </div>
 
-    <div class="divider my-4"></div>
-
+    <div class="p-4 p-md-5 pt-4">
         <div class="row g-3">
             <div class="col-lg-4 mb-3">
-                <div class="panel-soft p-4">
-                    <h4 class="mb-2">📅 Dự đoán ngày mai</h4>
+                <div class="wx-panel p-4 h-100">
+                    <div class="d-flex align-items-start gap-3 mb-3">
+                      <span class="wx-icon-bubble" style="width:46px;height:46px;font-size:1.1rem;"><i class="fa-solid fa-plus"></i></span>
+                      <div>
+                        <div class="wx-kicker mb-1">Cập nhật</div>
+                        <h4 class="mb-0 text-white fw-bold">Thêm điểm</h4>
+                      </div>
+                    </div>
                     <div class="muted small mb-3">
                         Nút “Thêm điểm” sẽ lấy đúng kết quả dự đoán ngày mai giống trang <code>/daily-predict</code>.
                     </div>
@@ -62,9 +91,11 @@
                     <div class="chart-container" style="height: 460px;">
                         <canvas id="rainfallSeriesChart"></canvas>
                     </div>
+                    <div id="chart-insights" class="chart-insights" aria-live="polite"></div>
                 </div>
             </div>
         </div>
+    </div>
   </div>
 
 {% endblock %}
@@ -73,8 +104,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script>
         let rainfallSeriesChart;
-        // bump version to reset old cached points (removes 2023-01-01)
-        const SERIES_STORAGE_KEY = 'compare_rainfall_series_v3';
+        // bump version để xóa chuỗi localStorage cũ (ví dụ điểm demo 2023-01-01)
+        const SERIES_STORAGE_KEY = 'compare_rainfall_series_v4';
 
         const MODEL_KEYS = [
             { label: 'XGBoost', apiLabel: 'XGBoost' },
@@ -107,6 +138,150 @@
         function parseDateForSort(s) {
             if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s + 'T00:00:00');
             return new Date(s);
+        }
+
+        function fmtMm(x) {
+            if (x == null || x === '' || Number.isNaN(Number(x))) return '—';
+            return Number(x).toFixed(2);
+        }
+
+        function seriesStats(labels, values) {
+            let minV = Infinity;
+            let maxV = -Infinity;
+            let minLabel = '';
+            let maxLabel = '';
+            let sum = 0;
+            let count = 0;
+            for (let i = 0; i < values.length; i++) {
+                const v = values[i];
+                if (v == null || v === '' || Number.isNaN(Number(v))) continue;
+                const n = Number(v);
+                count += 1;
+                sum += n;
+                if (n < minV) {
+                    minV = n;
+                    minLabel = labels[i] || '';
+                }
+                if (n > maxV) {
+                    maxV = n;
+                    maxLabel = labels[i] || '';
+                }
+            }
+            if (!count) return null;
+            return { minV, maxV, minLabel, maxLabel, mean: sum / count, count };
+        }
+
+        function updateChartInsights(store) {
+            const el = document.getElementById('chart-insights');
+            if (!el) return;
+
+            const labels = store.labels || [];
+            const series = store.series || {};
+
+            if (!labels.length) {
+                el.innerHTML =
+                    '<h3>Nhận xét</h3>' +
+                    '<p class="mb-0">Chưa có điểm trên biểu đồ. Bấm <strong>Thêm điểm</strong> để ghi nhận dự báo ngày mai theo từng mô hình, hoặc chờ trang tải dữ liệu đã lưu trên máy chủ (nếu có).</p>';
+                return;
+            }
+
+            const first = labels[0];
+            const last = labels[labels.length - 1];
+            const n = labels.length;
+
+            const lines = [];
+            lines.push(
+                'Chuỗi có <strong>' + n + '</strong> mốc thời gian, từ <strong>' + first + '</strong> đến <strong>' + last + '</strong>.'
+            );
+
+            const lastIdx = n - 1;
+            const atLast = [];
+            for (const m of MODEL_KEYS) {
+                const arr = series[m.label] || [];
+                const v = arr[lastIdx];
+                if (v != null && !Number.isNaN(Number(v))) {
+                    atLast.push({ label: m.label, v: Number(v) });
+                }
+            }
+            if (atLast.length >= 2) {
+                const vals = atLast.map(function (x) { return x.v; });
+                const hi = Math.max.apply(null, vals);
+                const lo = Math.min.apply(null, vals);
+                const spread = hi - lo;
+                const hiName = atLast.find(function (x) { return x.v === hi; }).label;
+                const loName = atLast.find(function (x) { return x.v === lo; }).label;
+                lines.push(
+                    'Tại ngày gần nhất (<strong>' + last + '</strong>), chênh lệch lớn nhất giữa hai mô hình là <strong>' +
+                        fmtMm(spread) +
+                        ' mm</strong> (cao nhất: ' +
+                        hiName +
+                        ' ' +
+                        fmtMm(hi) +
+                        ' mm, thấp nhất: ' +
+                        loName +
+                        ' ' +
+                        fmtMm(lo) +
+                        ' mm).'
+                );
+                if (spread < 0.5) {
+                    lines.push('Ba đường gần trùng nhau tại mốc cuối — các mô hình <strong>khá đồng thuận</strong> về lượng mưa dự báo.');
+                } else if (spread > 5) {
+                    lines.push('Chênh lệch lớn — nên xem thêm ngữ cảnh thời tiết hoặc độ tin cậy từng mô hình trước khi kết luận.');
+                }
+            }
+
+            for (const m of MODEL_KEYS) {
+                const arr = series[m.label] || [];
+                const st = seriesStats(labels, arr);
+                if (!st) continue;
+                lines.push(
+                    '<strong>' +
+                        m.label +
+                        '</strong>: trung bình chuỗi <strong>' +
+                        fmtMm(st.mean) +
+                        ' mm</strong> (' +
+                        st.count +
+                        ' điểm hợp lệ); cao nhất <strong>' +
+                        fmtMm(st.maxV) +
+                        ' mm</strong> (' +
+                        st.maxLabel +
+                        '), thấp nhất <strong>' +
+                        fmtMm(st.minV) +
+                        ' mm</strong> (' +
+                        st.minLabel +
+                        ').'
+                );
+            }
+
+            const xgbArr = series['XGBoost'] || [];
+            let firstVal = null;
+            let lastVal = null;
+            for (let i = 0; i < xgbArr.length; i++) {
+                if (xgbArr[i] != null && !Number.isNaN(Number(xgbArr[i]))) {
+                    firstVal = Number(xgbArr[i]);
+                    break;
+                }
+            }
+            for (let j = xgbArr.length - 1; j >= 0; j--) {
+                if (xgbArr[j] != null && !Number.isNaN(Number(xgbArr[j]))) {
+                    lastVal = Number(xgbArr[j]);
+                    break;
+                }
+            }
+            if (firstVal != null && lastVal != null && n >= 2) {
+                const delta = lastVal - firstVal;
+                let trend = 'dao động quanh mức trung bình';
+                if (delta > 1) trend = 'xu hướng <strong>tăng</strong> từ đầu chuỗi đến cuối (theo XGBoost, Δ ≈ ' + fmtMm(delta) + ' mm)';
+                else if (delta < -1) trend = 'xu hướng <strong>giảm</strong> từ đầu chuỗi đến cuối (theo XGBoost, Δ ≈ ' + fmtMm(Math.abs(delta)) + ' mm)';
+                else trend = 'giai đoạn đầu và cuối chuỗi <strong>khá ổn định</strong> (XGBoost chênh ~' + fmtMm(Math.abs(delta)) + ' mm)';
+                lines.push('So sánh mốc đầu / cuối chuỗi: ' + trend + '.');
+            }
+
+            el.innerHTML =
+                '<h3>Nhận xét nhanh</h3><ul>' +
+                lines.map(function (line) { return '<li>' + line + '</li>'; }).join('') +
+                '</ul>' +
+                '<p class="insight-muted mb-0">Nhận xét được tạo tự động từ dữ liệu trên biểu đồ; không thay thế phân tích chuyên môn.</p>';
         }
 
         function upsertPoint(dateIso, modelsMap) {
@@ -189,7 +364,10 @@
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { position: 'top' },
+                        legend: {
+                            position: 'top',
+                            labels: { color: 'rgba(255,255,255,.88)', usePointStyle: true },
+                        },
                         tooltip: {
                             callbacks: {
                                 label: (ctx) => `${ctx.dataset.label}: ${Number(ctx.parsed.y ?? 0).toFixed(2)} mm`,
@@ -197,11 +375,21 @@
                         },
                     },
                     scales: {
-                        y: { beginAtZero: true, title: { display: true, text: 'mm' } },
-                        x: { title: { display: true, text: 'Ngày dự đoán (YYYY-MM-DD)' } },
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'mm', color: 'rgba(255,255,255,.75)' },
+                            ticks: { color: 'rgba(255,255,255,.65)' },
+                            grid: { color: 'rgba(255,255,255,.1)' },
+                        },
+                        x: {
+                            title: { display: true, text: 'Ngày dự đoán (YYYY-MM-DD)', color: 'rgba(255,255,255,.75)' },
+                            ticks: { color: 'rgba(255,255,255,.65)', maxRotation: 45 },
+                            grid: { color: 'rgba(255,255,255,.08)' },
+                        },
                     },
                 },
             });
+            updateChartInsights(store);
         }
 
         async function fetchTomorrowPrediction() {
@@ -216,8 +404,18 @@
             return data;
         }
 
+        /** Chỉ đồng bộ các mốc dự đoán gần đây (tránh bản demo kiểu 2023-01-01 lấp đầy biểu đồ). */
+        function dailyPredictionsSinceIso() {
+            const d = new Date();
+            d.setDate(d.getDate() - 450);
+            return d.toISOString().slice(0, 10);
+        }
+
         async function fetchSavedPredictions(limit = 60) {
-            const response = await fetch(`/api/daily-predictions/?limit=${encodeURIComponent(limit)}`);
+            const since = dailyPredictionsSinceIso();
+            const response = await fetch(
+                '/api/daily-predictions/?limit=' + encodeURIComponent(limit) + '&since=' + encodeURIComponent(since)
+            );
             const contentType = response.headers.get('content-type') || '';
             if (!contentType.includes('application/json')) {
                 const text = await response.text();
@@ -230,10 +428,13 @@
 
         function hydrateFromDbRows(rows) {
             // rows: [{date, rf, xgb, et}]
+            const sorted = (rows || []).slice().sort(function (a, b) {
+                return parseDateForSort(a.date) - parseDateForSort(b.date);
+            });
             const labels = [];
             const series = { 'XGBoost': [], 'Extra Trees': [], 'Random Forest': [] };
 
-            for (const r of rows) {
+            for (const r of sorted) {
                 if (!r || !r.date) continue;
                 labels.push(r.date);
                 series['XGBoost'].push(Number(r.xgb ?? 0));

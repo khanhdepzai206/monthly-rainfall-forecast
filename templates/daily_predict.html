@@ -4,151 +4,314 @@
 
 {% block extra_css %}
 <style>
-  .prediction-tile{ background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.10); border-radius: 18px; padding: 18px; height: 100%; }
-  .prediction-value{ font-size: 2.4rem; font-weight: 900; letter-spacing:-0.02em; }
-  .subline{ color: rgba(255,255,255,.72); font-size: 0.95em; }
-  .badge-best{ background: linear-gradient(135deg, rgba(52,211,153,.35), rgba(34,211,238,.18)); border:1px solid rgba(255,255,255,.10); color: rgba(255,255,255,.92); border-radius: 999px; padding: 8px 12px; font-weight: 800; display:inline-block; }
-  .loading{ display:none; }
-  .spinner-dot{
-    width: 18px; height: 18px; border-radius: 999px;
-    border: 3px solid rgba(255,255,255,.18);
-    border-top-color: rgba(124,58,237,.9);
-    animation: spin 1s linear infinite;
-    display:inline-block;
+  /* Trang dự báo kiểu “Thời tiết” iOS: gradient dọc + thẻ kính mờ */
+  .wx-page{
+    --wx-frost: rgba(255,255,255,.14);
+    --wx-frost2: rgba(255,255,255,.22);
+    --wx-line: rgba(255,255,255,.18);
+    --wx-text: rgba(255,255,255,.96);
+    --wx-sub: rgba(255,255,255,.72);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    border-radius: 28px;
+    overflow: hidden;
+    max-width: 440px;
+    margin: 0 auto;
+    background: rgba(255,255,255,.06);
+    box-shadow: 0 24px 60px rgba(0,40,90,.25), inset 0 1px 0 rgba(255,255,255,.2);
+    border: 1px solid rgba(255,255,255,.18);
+    backdrop-filter: blur(8px);
   }
-  @keyframes spin{ to{ transform: rotate(360deg); } }
+  .wx-inner{ padding: 20px 18px 28px; }
+  .wx-top{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+    margin-bottom: 8px;
+  }
+  .wx-title{ font-size: .78rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--wx-sub); }
+  .wx-date{ font-size: 2.05rem; font-weight: 700; letter-spacing: -0.03em; color: var(--wx-text); line-height: 1.1; }
+  .wx-subdate{ font-size: .95rem; color: var(--wx-sub); margin-top: 2px; }
+  .wx-link-chart{
+    flex-shrink:0;
+    font-size: .8rem; font-weight: 600;
+    padding: 8px 12px; border-radius: 999px;
+    background: var(--wx-frost);
+    color: #fff !important; text-decoration: none !important;
+    border: 1px solid var(--wx-line);
+    backdrop-filter: blur(12px);
+  }
+  .wx-link-chart:hover{ background: var(--wx-frost2); color:#fff !important; }
+
+  .wx-card{
+    background: linear-gradient(180deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,.08) 100%);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border-radius: 22px;
+    border: 1px solid var(--wx-line);
+    padding: 14px 14px 10px;
+    margin-top: 14px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
+  }
+  .wx-section-h{
+    font-size: 1.05rem; font-weight: 650;
+    color: var(--wx-text);
+    margin: 0 0 10px 4px;
+    letter-spacing: -0.02em;
+  }
+
+  /* Hero: số lớn giống nhiệt độ */
+  .wx-hero{
+    text-align: center;
+    padding: 8px 0 4px;
+  }
+  .wx-hero-icon{ font-size: 3.2rem; line-height: 1; margin-bottom: 4px; opacity: .95; }
+  .wx-hero-num{
+    font-size: 4.25rem;
+    font-weight: 300;
+    letter-spacing: -0.05em;
+    line-height: 1;
+    color: var(--wx-text);
+    text-shadow: 0 12px 40px rgba(0,0,0,.2);
+  }
+  .wx-hero-num small{ font-size: 1.85rem; font-weight: 500; opacity: .85; margin-left: 2px; }
+  .wx-hero-cap{ font-size: 1rem; color: var(--wx-sub); margin-top: 6px; font-weight: 500; }
+  .wx-hero-pills{
+    display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-top:12px;
+  }
+  .wx-pill{
+    font-size: .72rem; font-weight: 600;
+    padding: 6px 10px; border-radius: 999px;
+    background: rgba(0,0,0,.12);
+    color: rgba(255,255,255,.9);
+    border: 1px solid rgba(255,255,255,.12);
+  }
+
+  /* Hàng “giờ” — ở đây là 3 mô hình */
+  .wx-strip{
+    display:flex; gap: 10px;
+    overflow-x: auto;
+    padding: 4px 2px 8px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .wx-strip::-webkit-scrollbar{ display:none; }
+  .wx-chip{
+    flex: 0 0 auto;
+    min-width: 108px;
+    text-align: center;
+    padding: 12px 10px 10px;
+    border-radius: 16px;
+    background: rgba(255,255,255,.1);
+    border: 1px solid rgba(255,255,255,.14);
+  }
+  .wx-chip-label{ font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--wx-sub); }
+  .wx-chip-mm{ font-size: 1.35rem; font-weight: 650; color: var(--wx-text); margin-top: 4px; }
+  .wx-chip-pop{ font-size: .75rem; color: var(--wx-sub); margin-top: 2px; }
+
+  /* Danh sách kiểu “10 ngày” → 3 mô hình */
+  .wx-rows{ padding: 0 2px; }
+  .wx-row{
+    display:grid;
+    grid-template-columns: 1fr minmax(48px, 72px) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 4px;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+    font-size: .95rem;
+  }
+  .wx-row:last-child{ border-bottom: 0; }
+  .wx-row-left{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .wx-row-icon{ width: 36px; text-align: center; font-size: 1.15rem; opacity: .95; }
+  .wx-row-name{ font-weight: 600; color: var(--wx-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wx-row-bar-wrap{ height: 4px; border-radius: 999px; background: rgba(255,255,255,.12); overflow: hidden; }
+  .wx-row-bar{ height:100%; border-radius: 999px; background: linear-gradient(90deg, rgba(255,255,255,.35), rgba(180,230,255,.95)); }
+  .wx-row-mm{ text-align: right; font-weight: 650; color: var(--wx-text); font-variant-numeric: tabular-nums; }
+  .wx-row-mm span{ display:block; font-size: .68rem; font-weight: 600; color: var(--wx-sub); margin-top: 2px; }
+  .wx-row-best .wx-row-name::after{
+    content: "★"; margin-left: 6px; font-size: .7rem; color: #ffe08a;
+  }
+
+  .wx-foot{
+    margin-top: 14px;
+    font-size: .72rem;
+    line-height: 1.45;
+    color: rgba(255,255,255,.55);
+    text-align: center;
+    padding: 0 8px;
+  }
+  .wx-foot code{ font-size: .68rem; background: rgba(0,0,0,.15); padding: 2px 6px; border-radius: 6px; }
+
+  .wx-actions{ margin-top: 18px; text-align: center; }
+  .wx-btn{
+    appearance: none;
+    border: 0;
+    border-radius: 999px;
+    padding: 14px 28px;
+    font-weight: 650;
+    font-size: 1rem;
+    letter-spacing: -0.01em;
+    color: #0a4a7a;
+    background: rgba(255,255,255,.92);
+    box-shadow: 0 14px 36px rgba(0,30,60,.35);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .wx-btn:hover{ transform: scale(1.02); color: #063558; }
+  .wx-btn:active{ transform: scale(.98); }
+  .wx-btn:disabled{ opacity: .65; transform: none; }
+
+  .wx-loading{ display:none; margin-top: 12px; text-align:center; font-size: .88rem; color: var(--wx-sub); }
+  .wx-err{
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: rgba(180,30,50,.25);
+    border: 1px solid rgba(255,120,140,.35);
+    color: #ffeef0;
+    font-size: .88rem;
+  }
+
+  @media (min-width: 768px){
+    .wx-page{ max-width: 480px; }
+    .wx-hero-num{ font-size: 4.75rem; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-  <div class="glass-card p-4 p-md-5">
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-2">
-      <div>
-        <h1 class="page-title"><i class="fa-solid fa-cloud-sun-rain me-2"></i>Dự báo ngày mai</h1>
-        <p class="page-subtitle">3 mô hình 2-stage: RandomForest / XGBoost / ExtraTrees.</p>
+  <div class="wx-page fade-up">
+    <div class="wx-inner">
+      <div class="wx-top">
+        <div>
+          <div class="wx-title">Dự báo</div>
+          <div class="wx-date">Ngày mai</div>
+          {% if predictions %}
+          <div class="wx-subdate">{{ forecast_date }}</div>
+          {% else %}
+          <div class="wx-subdate">Nhấn để chạy mô hình</div>
+          {% endif %}
+        </div>
+        <a class="wx-link-chart" href="/compare/">Biểu đồ</a>
       </div>
-      <a class="btn btn-soft" href="/compare/"><i class="fa-solid fa-chart-line me-2"></i>Biểu đồ</a>
+
+      <div class="wx-actions">
+        <form method="post" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="wx-btn" id="predictBtn">
+            Cập nhật dự báo
+          </button>
+        </form>
+        <div class="wx-loading" id="loading">Đang chạy mô hình…</div>
+      </div>
+
+      {% if error %}
+      <div class="wx-err mt-3"><strong>Lỗi:</strong> {{ error }}</div>
+      {% endif %}
+
+      {% if predictions %}
+      <div class="wx-card wx-hero">
+        <div class="wx-hero-icon" aria-hidden="true"><i class="fa-solid fa-cloud-showers-heavy"></i></div>
+        {% if best_model == 'RF' %}
+        <div class="wx-hero-num">{{ predictions.rf }}<small>mm</small></div>
+        <div class="wx-hero-cap">Kỳ vọng mưa (RandomForest) · PoP {{ predictions.rf_prob }}%</div>
+        {% elif best_model == 'ET' %}
+        <div class="wx-hero-num">{{ predictions.et }}<small>mm</small></div>
+        <div class="wx-hero-cap">Kỳ vọng mưa (ExtraTrees) · PoP {{ predictions.et_prob }}%</div>
+        {% else %}
+        <div class="wx-hero-num">{{ predictions.xgb }}<small>mm</small></div>
+        <div class="wx-hero-cap">Kỳ vọng mưa (XGBoost) · PoP {{ predictions.xgb_prob }}%</div>
+        {% endif %}
+        <div class="wx-hero-pills">
+          <span class="wx-pill">RF {{ predictions.rf }} mm</span>
+          <span class="wx-pill">XGB {{ predictions.xgb }} mm</span>
+          <span class="wx-pill">ET {{ predictions.et }} mm</span>
+          <span class="wx-pill">Dữ liệu đến {{ data_as_of }}</span>
+        </div>
+      </div>
+
+      <div class="wx-card">
+        <div class="wx-section-h">Theo mô hình</div>
+        <div class="wx-strip">
+          <div class="wx-chip">
+            <div class="wx-chip-label">RandomForest</div>
+            <div class="wx-chip-mm">{{ predictions.rf }}<small style="font-size:.75rem"> mm</small></div>
+            <div class="wx-chip-pop">{{ predictions.rf_prob }}% mưa</div>
+          </div>
+          <div class="wx-chip">
+            <div class="wx-chip-label">XGBoost</div>
+            <div class="wx-chip-mm">{{ predictions.xgb }}<small style="font-size:.75rem"> mm</small></div>
+            <div class="wx-chip-pop">{{ predictions.xgb_prob }}% mưa</div>
+          </div>
+          <div class="wx-chip">
+            <div class="wx-chip-label">ExtraTrees</div>
+            <div class="wx-chip-mm">{{ predictions.et }}<small style="font-size:.75rem"> mm</small></div>
+            <div class="wx-chip-pop">{{ predictions.et_prob }}% mưa</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="wx-card" style="padding-bottom: 6px;">
+        <div class="wx-section-h">Chi tiết</div>
+        <div class="wx-rows">
+          <div class="wx-row {% if best_model == 'RF' %}wx-row-best{% endif %}">
+            <div class="wx-row-left">
+              <span class="wx-row-icon text-success"><i class="fa-solid fa-tree"></i></span>
+              <span class="wx-row-name">RandomForest</span>
+            </div>
+            <div class="wx-row-bar-wrap" title="PoP">
+              <div class="wx-row-bar" style="width: {{ predictions.rf_prob }}%; max-width:100%"></div>
+            </div>
+            <div class="wx-row-mm">{{ predictions.rf }} mm<span>Nếu mưa {{ predictions.rf_if_rain }} mm</span></div>
+          </div>
+          <div class="wx-row {% if best_model == 'XGB' %}wx-row-best{% endif %}">
+            <div class="wx-row-left">
+              <span class="wx-row-icon text-warning"><i class="fa-solid fa-rocket"></i></span>
+              <span class="wx-row-name">XGBoost</span>
+            </div>
+            <div class="wx-row-bar-wrap">
+              <div class="wx-row-bar" style="width: {{ predictions.xgb_prob }}%; max-width:100%"></div>
+            </div>
+            <div class="wx-row-mm">{{ predictions.xgb }} mm<span>Nếu mưa {{ predictions.xgb_if_rain }} mm</span></div>
+          </div>
+          <div class="wx-row {% if best_model == 'ET' %}wx-row-best{% endif %}">
+            <div class="wx-row-left">
+              <span class="wx-row-icon text-info"><i class="fa-solid fa-bolt"></i></span>
+              <span class="wx-row-name">ExtraTrees</span>
+            </div>
+            <div class="wx-row-bar-wrap">
+              <div class="wx-row-bar" style="width: {{ predictions.et_prob }}%; max-width:100%"></div>
+            </div>
+            <div class="wx-row-mm">{{ predictions.et }} mm<span>Nếu mưa {{ predictions.et_if_rain }} mm</span></div>
+          </div>
+        </div>
+      </div>
+
+      <p class="wx-foot">
+        PoP = xác suất mưa. Kỳ vọng (mm) ≈ PoP × (mm nếu mưa). Kết quả lưu vào CSDL sau mỗi lần dự báo.<br>
+        Dữ liệu: <code>daily_combined.csv</code>
+      </p>
+      {% endif %}
     </div>
-
-    <div class="divider my-4"></div>
-
-        <div class="text-center">
-            <form method="post">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-brand" id="predictBtn">
-                    <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Dự đoán ngày mai
-                </button>
-            </form>
-
-            <div class="loading" id="loading">
-                <div class="d-flex align-items-center justify-content-center gap-2 mt-3">
-                  <span class="spinner-dot"></span>
-                  <span class="muted">Đang chạy mô hình...</span>
-                </div>
-            </div>
-        </div>
-
-        {% if error %}
-        <div class="alert alert-danger">
-            <i class="fa-solid fa-triangle-exclamation me-2"></i>
-            <strong>Lỗi:</strong> {{ error }}
-        </div>
-        {% endif %}
-
-        {% if predictions %}
-        <div class="alert alert-success">
-            <i class="fa-solid fa-circle-check me-2"></i>
-            <strong>Dự đoán cho ngày {{ date }}</strong>
-            <div class="mt-2" style="font-size:0.95em">
-                (Dữ liệu đầu vào dùng đến ngày <strong>{{ data_as_of }}</strong> trong file <code>daily_combined.csv</code>)
-            </div>
-        </div>
-        <div class="alert alert-info">
-            <i class="fa-solid fa-circle-info me-2"></i>
-            PoP = xác suất mưa. “Kỳ vọng (mm)” = PoP × (mm nếu mưa).
-        </div>
-
-        <div class="row">
-            <div class="col-md-4">
-                <div class="prediction-tile">
-                    <div class="model-name">
-                        <i class="fa-solid fa-tree text-success me-2"></i>RandomForest
-                    </div>
-                    <div class="subline">PoP: <strong>{{ predictions.rf_prob }}%</strong></div>
-                    <div class="prediction-value">
-                        {{ predictions.rf }}<span class="unit"> mm</span>
-                    </div>
-                    <div class="subline">Nếu mưa: <strong>{{ predictions.rf_if_rain }} mm</strong></div>
-                    {% if best_model == 'RF' %}
-                      <div class="badge-best"><i class="fa-solid fa-star me-2"></i>Mô hình tốt nhất</div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="col-md-4">
-                <div class="prediction-tile">
-                    <div class="model-name">
-                        <i class="fa-solid fa-rocket text-warning me-2"></i>XGBoost
-                    </div>
-                    <div class="subline">PoP: <strong>{{ predictions.xgb_prob }}%</strong></div>
-                    <div class="prediction-value">
-                        {{ predictions.xgb }}<span class="unit"> mm</span>
-                    </div>
-                    <div class="subline">Nếu mưa: <strong>{{ predictions.xgb_if_rain }} mm</strong></div>
-                    {% if best_model == 'XGB' %}
-                      <div class="badge-best"><i class="fa-solid fa-star me-2"></i>Mô hình tốt nhất</div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="col-md-4">
-                <div class="prediction-tile">
-                    <div class="model-name">
-                        <i class="fa-solid fa-bolt text-info me-2"></i>ExtraTrees
-                    </div>
-                    <div class="subline">PoP: <strong>{{ predictions.et_prob }}%</strong></div>
-                    <div class="prediction-value">
-                        {{ predictions.et }}<span class="unit"> mm</span>
-                    </div>
-                    <div class="subline">Nếu mưa: <strong>{{ predictions.et_if_rain }} mm</strong></div>
-                    {% if best_model == 'ET' %}
-                      <div class="badge-best"><i class="fa-solid fa-star me-2"></i>Mô hình tốt nhất</div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <div class="alert alert-info">
-            <h6><i class="fa-solid fa-circle-info me-2"></i>Thông tin</h6>
-            <ul class="mb-0">
-                <li>Dự đoán dựa trên dữ liệu thời tiết 7 ngày gần nhất</li>
-                <li>Mô hình tốt nhất được xác định dựa trên sai số trung bình</li>
-                <li>Kết quả được lưu tự động vào database</li>
-                <li>Ngày mai hãy nhập actual rainfall để cải thiện độ chính xác</li>
-            </ul>
-        </div>
-        {% endif %}
   </div>
 {% endblock %}
 
 {% block extra_js %}
-    <script>
-        // Reset loading state on page load (after POST response too)
-        document.addEventListener('DOMContentLoaded', function() {
-            const loading = document.getElementById('loading');
-            const btn = document.getElementById('predictBtn');
-            if (loading) loading.style.display = 'none';
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles me-2"></i>Dự đoán ngày mai';
-            }
-        });
-
-        // Show loading when form is submitted
-        document.querySelector('form').addEventListener('submit', function() {
-            document.getElementById('predictBtn').disabled = true;
-            document.getElementById('predictBtn').innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Đang xử lý...';
-            document.getElementById('loading').style.display = 'block';
-        });
-    </script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const loading = document.getElementById('loading');
+    const btn = document.getElementById('predictBtn');
+    if (loading) loading.style.display = 'none';
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Cập nhật dự báo';
+    }
+  });
+  const form = document.querySelector('.wx-actions form');
+  if (form) {
+    form.addEventListener('submit', function() {
+      const btn = document.getElementById('predictBtn');
+      const loading = document.getElementById('loading');
+      if (btn) { btn.disabled = true; btn.textContent = 'Đang xử lý…'; }
+      if (loading) loading.style.display = 'block';
+    });
+  }
+</script>
 {% endblock %}

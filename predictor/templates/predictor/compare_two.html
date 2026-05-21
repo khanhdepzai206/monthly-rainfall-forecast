@@ -5,56 +5,73 @@
 
 {% block extra_css %}
 <style>
-.container-two { max-width: 1100px; margin: 0 auto; padding: 20px; }
-.controls { display:flex; gap:12px; align-items:center; margin-bottom:18px; }
-.card { background:#fff; padding:18px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.06); }
+.container-two { max-width: 1100px; margin: 0 auto; }
+.container-two, .container-two h2, .container-two h3 { color: rgba(255,255,255,.95); }
+.container-two a { font-weight: 600; border-bottom: 1px solid rgba(255,255,255,.35); }
+.controls { display:flex; gap:12px; align-items:center; margin-bottom:18px; flex-wrap:wrap; }
+.controls label { color: rgba(255,255,255,.85); font-weight: 600; font-size: .9rem; }
+.controls select { min-width: 160px; }
+.ct-card {
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 18px;
+  padding: 18px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 12px 40px rgba(0,40,80,.2);
+}
 .side-by-side { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:18px; }
-.metric { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f0f2f5; }
-.metric strong { color:#333 }
+@media (max-width: 768px){ .side-by-side { grid-template-columns: 1fr; } }
+.metric { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.88); }
+.metric:last-of-type { border-bottom: 0; }
+.metric strong { color:#fff; font-variant-numeric: tabular-nums; }
+#swapBtn { cursor: pointer; font-weight: 650; color: #0a4a7a; background: rgba(255,255,255,.92); border: 0; border-radius: 999px; padding: 10px 18px; }
+#swapBtn:hover { filter: brightness(1.05); }
 </style>
 {% endblock %}
 
-{% block content %}
+{% block predictor_content %}
+<div class="glass-card p-4 p-md-5">
 <div class="container-two">
-    <h2>So sánh hai mô hình</h2>
-    <div style="margin: 6px 0 18px 0;">
-        Bạn đang ở trang so sánh <strong>metrics</strong> của 2 mô hình.
-        Nếu muốn biểu đồ đường theo <strong>ngày dự đoán (mỗi lần nhập = thêm 1 điểm)</strong>, mở trang
-        <a href="/compare/" style="font-weight:600;">/compare</a>.
+    <h2 class="page-title">So sánh hai mô hình</h2>
+    <div class="page-subtitle mb-3">
+        So sánh <strong>metrics</strong> hai mô hình. Biểu đồ theo ngày dự đoán:
+        <a href="/compare/">/compare</a>.
     </div>
     {% if error %}
-        <div style="color:red">Error: {{ error }}</div>
+        <div class="alert alert-danger">Error: {{ error }}</div>
     {% endif %}
 
     <div class="controls">
-        <label>Model A:
-            <select id="modelA"></select>
+        <label>Model A
+            <select id="modelA" class="form-select form-select-sm mt-1"></select>
         </label>
-        <label>Model B:
-            <select id="modelB"></select>
+        <label>Model B
+            <select id="modelB" class="form-select form-select-sm mt-1"></select>
         </label>
-        <button id="swapBtn" class="card">Swap</button>
+        <button type="button" id="swapBtn">Đổi</button>
     </div>
 
     <div class="side-by-side">
-        <div class="card" id="cardA">
-            <h3 id="nameA">Model A</h3>
+        <div class="ct-card" id="cardA">
+            <h3 id="nameA" class="h5 mb-3">Model A</h3>
             <div class="metric"><span>MAE</span><strong id="maeA">-</strong></div>
             <div class="metric"><span>RMSE</span><strong id="rmseA">-</strong></div>
             <div class="metric"><span>R²</span><strong id="r2A">-</strong></div>
         </div>
 
-        <div class="card" id="cardB">
-            <h3 id="nameB">Model B</h3>
+        <div class="ct-card" id="cardB">
+            <h3 id="nameB" class="h5 mb-3">Model B</h3>
             <div class="metric"><span>MAE</span><strong id="maeB">-</strong></div>
             <div class="metric"><span>RMSE</span><strong id="rmseB">-</strong></div>
             <div class="metric"><span>R²</span><strong id="r2B">-</strong></div>
         </div>
     </div>
 
-    <div class="card">
+    <div class="ct-card">
         <canvas id="compareChart" height="120"></canvas>
     </div>
+</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -85,7 +102,6 @@
         document.getElementById('rmseB').textContent = B.rmse ?? 'N/A';
         document.getElementById('r2B').textContent = B.r2_score ?? 'N/A';
 
-        // update chart
         updateChart(A, B);
     }
 
@@ -96,9 +112,22 @@
     selA.addEventListener('change', renderCards);
     selB.addEventListener('change', renderCards);
 
-    // Chart
     const ctx = document.getElementById('compareChart').getContext('2d');
-    let compareChart = new Chart(ctx, { type: 'bar', data: { labels: ['MAE','RMSE','R²'], datasets: [] }, options: { responsive:true, maintainAspectRatio:false } });
+    let compareChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: ['MAE','RMSE','R²'], datasets: [] },
+        options: {
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins: {
+                legend: { labels: { color: 'rgba(255,255,255,.9)' } }
+            },
+            scales: {
+                x: { ticks: { color: 'rgba(255,255,255,.75)' }, grid: { color: 'rgba(255,255,255,.08)' } },
+                y: { ticks: { color: 'rgba(255,255,255,.75)' }, grid: { color: 'rgba(255,255,255,.08)' } }
+            }
+        }
+    });
 
     function updateChart(A, B){
         const aVals = [A.mae||0, A.rmse||0, A.r2_score||0];
@@ -112,5 +141,4 @@
 
     renderCards();
 </script>
-
 {% endblock %}

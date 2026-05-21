@@ -4,25 +4,29 @@
 
 {% block extra_css %}
 <style>
-  .panel-soft{ background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.10); border-radius: 18px; }
-  .actual-card{ background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.10); border-radius: 18px; padding: 16px; }
-  .badge-pill{ border:1px solid rgba(255,255,255,.10); background: rgba(255,255,255,.06); color: rgba(255,255,255,.90); border-radius: 999px; padding: 6px 10px; font-weight: 800; }
-  .value-big{ font-size: 1.7rem; font-weight: 900; letter-spacing:-0.02em; }
+  .badge-pill{ border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.1); color: rgba(255,255,255,.92); border-radius: 999px; padding: 6px 10px; font-weight: 700; }
+  .value-big{ font-size: 1.7rem; font-weight: 650; letter-spacing:-0.02em; font-variant-numeric: tabular-nums; }
+  .prediction-comparison{ display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:10px; margin-top:14px; }
+  .pred-item{ background: rgba(255,255,255,.08); border-radius: 14px; padding: 12px; border: 1px solid rgba(255,255,255,.12); }
+  .pred-label{ font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; opacity: .85; }
+  .pred-value{ font-size: 1.2rem; font-weight: 650; font-variant-numeric: tabular-nums; }
 </style>
 {% endblock %}
 
 {% block content %}
-  <div class="glass-card p-4 p-md-5">
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-2">
-      <div>
-        <h1 class="page-title"><i class="fa-solid fa-pen-to-square me-2"></i>Nhập lượng mưa thực tế</h1>
-        <p class="page-subtitle">Lưu “actual” để tính sai số và phục vụ retrain.</p>
+  <div class="glass-card p-0 overflow-hidden">
+    <div class="px-4 py-3 px-md-5 py-md-4" style="background: radial-gradient(100% 120% at 0% 0%, rgba(255,255,255,.14), transparent 55%); border-bottom: 1px solid rgba(255,255,255,.1);">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+        <div>
+          <div class="wx-kicker mb-1">Hiệu chỉnh mô hình</div>
+          <h1 class="page-title mb-1"><i class="fa-solid fa-pen-to-square me-2"></i>Nhập mưa thực tế</h1>
+          <p class="page-subtitle mb-0">Đối chiếu với dự báo đã lưu, tự tính sai số và kích hoạt retrain khi lệch lớn.</p>
+        </div>
+        <a class="btn btn-soft" href="/daily-predict/"><i class="fa-solid fa-cloud-sun-rain me-2"></i>Dự báo ngày mai</a>
       </div>
-      <a class="btn btn-soft" href="/daily-predict/"><i class="fa-solid fa-cloud-sun-rain me-2"></i>Ngày mai</a>
     </div>
 
-    <div class="divider my-4"></div>
-
+    <div class="p-4 p-md-5">
         {% if messages %}
         {% for message in messages %}
         <div class="alert alert-{{ message.tags }}">
@@ -31,10 +35,11 @@
         {% endfor %}
         {% endif %}
 
-        <div class="row g-3">
+        <div class="row g-4">
             <div class="col-md-5">
-                <div class="panel-soft p-4">
-                    <h5 class="mb-3"><i class="fa-solid fa-plus me-2"></i>Thêm dữ liệu</h5>
+                <div class="wx-panel p-4 h-100">
+                    <div class="wx-kicker mb-2">Form</div>
+                    <h5 class="mb-3 fw-bold text-white"><i class="fa-solid fa-plus me-2"></i>Thêm dữ liệu</h5>
                     <form method="post">
                         {% csrf_token %}
                         <div class="mb-3">
@@ -61,11 +66,12 @@
             </div>
 
             <div class="col-md-7">
-                <h5 class="mb-3"><i class="fa-solid fa-clock-rotate-left me-2"></i>Dữ liệu gần đây</h5>
+                <div class="wx-kicker mb-2">Lịch sử</div>
+                <h5 class="mb-3 fw-bold text-white"><i class="fa-solid fa-clock-rotate-left me-2"></i>Dữ liệu gần đây</h5>
 
                 {% if recent_actuals %}
                     {% for actual in recent_actuals %}
-                    <div class="actual-card mb-3">
+                    <div class="wx-panel p-3 mb-3">
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="badge-pill">
                                 <i class="fa-regular fa-calendar me-2"></i>{{ actual.date|date:"d/m/Y" }}
@@ -75,7 +81,8 @@
                             {% endif %}
                         </div>
 
-                        <div class="value-big mt-2">
+                        <div class="text-muted small mb-1">Lượng mưa thực tế (đã nhập)</div>
+                        <div class="value-big mt-0">
                           <i class="fa-solid fa-droplet me-2"></i>{{ actual.actual_rainfall }} mm
                         </div>
 
@@ -120,24 +127,23 @@
                     </div>
                     {% endfor %}
                 {% else %}
-                    <div class="no-data">
-                        <i class="fas fa-info-circle fa-3x text-muted mb-3"></i>
-                        <p>Chưa có dữ liệu actual rainfall nào.</p>
-                        <p>Hãy nhập dữ liệu thực tế sau khi có prediction.</p>
+                    <div class="wx-panel p-5 text-center" style="max-width: 380px; margin: 0 auto;">
+                        <div class="wx-icon-bubble mx-auto mb-3" style="width:56px;height:56px;"><i class="fa-solid fa-inbox"></i></div>
+                        <p class="fw-semibold mb-1">Chưa có bản ghi actual</p>
+                        <p class="muted small mb-0">Nhập ngày và lượng mưa thực tế bên trái — sau khi có prediction trong CSDL, thẻ bên phải sẽ hiện so sánh.</p>
                     </div>
                 {% endif %}
             </div>
         </div>
 
-        <div class="alert alert-info">
-            <h6><i class="fas fa-lightbulb"></i> Hướng Dẫn</h6>
-            <ul class="mb-0">
-                <li>Nhập dữ liệu thực tế của ngày hôm qua để so sánh với prediction</li>
-                <li>Hệ thống sẽ tự động tính sai số và quyết định có retrain models không</li>
-                <li>Nếu sai lệch nhỏ (<= 20%) thì không cần retrain, chỉ ghi nhận lịch sử</li>
-                <li>Nếu sai lệch lớn (> 20%) thì hệ thống sẽ tự động retrain và báo người dùng</li>
-                <li>Dữ liệu càng nhiều, mô hình càng chính xác</li>
+        <div class="alert alert-info mb-0">
+            <h6 class="fw-bold"><i class="fas fa-lightbulb me-2"></i>Hướng dẫn nhanh</h6>
+            <ul class="mb-0 small mt-2">
+                <li>Nhập actual sau khi đã có dự báo cho đúng ngày.</li>
+                <li>Hệ thống tính sai số RF / XGB / ET và quyết định retrain.</li>
+                <li>Càng nhiều cặp (dự báo, thực tế), mô hình càng ổn định.</li>
             </ul>
         </div>
+    </div>
   </div>
 {% endblock %}

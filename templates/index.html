@@ -2,55 +2,125 @@
 
 {% block title %}Dashboard — Dự báo lượng mưa{% endblock %}
 
+{% block extra_css %}
+<style>
+  .dash-hero{
+    background: radial-gradient(120% 80% at 0% 0%, rgba(255,255,255,.18) 0%, transparent 55%),
+                radial-gradient(80% 60% at 100% 20%, rgba(180,230,255,.15) 0%, transparent 50%);
+    border-bottom: 1px solid rgba(255,255,255,.12);
+  }
+  .dash-hero .lead-ish{
+    font-size: 1.05rem;
+    line-height: 1.55;
+    color: rgba(255,255,255,.78);
+    max-width: 34rem;
+  }
+  .wx-feature-link{
+    color: inherit !important;
+    text-decoration: none !important;
+    border-bottom: none !important;
+    border-radius: 18px;
+  }
+  .wx-feature-link:hover .wx-feature-title{ color: #fff; }
+  .wx-feature-link .wx-go{
+    font-size: .85rem;
+    font-weight: 700;
+    color: rgba(255,255,255,.55);
+    margin-top: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: color .2s ease, gap .2s ease;
+  }
+  .wx-feature-link:hover .wx-go{ color: rgba(255,255,255,.95); gap: 10px; }
+  .wx-feature-title{ font-size: 1.1rem; font-weight: 750; letter-spacing: -0.02em; transition: color .2s ease; }
+  .wx-quick-row .btn-soft{ min-width: 0; }
+</style>
+{% endblock %}
+
 {% block content %}
-  <div class="glass-card p-4 p-md-5">
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3">
-      <div>
-        <h1 class="page-title">Dashboard</h1>
-        <p class="page-subtitle">Giao diện tổng quan dự báo lượng mưa theo ngày, theo ngày mai và theo biểu đồ.</p>
-      </div>
-      <div class="d-flex gap-2">
-        <a class="btn btn-brand" href="/daily-predict/"><i class="fa-solid fa-wand-magic-sparkles me-2"></i>Dự báo ngày mai</a>
-        <a class="btn btn-soft" href="/predict/"><i class="fa-regular fa-calendar me-2"></i>Dự đoán theo ngày</a>
-      </div>
-    </div>
-
-    <div class="divider my-4"></div>
-
-    <div class="row g-3">
-      <div class="col-md-4">
-        <div class="glass-card p-4 h-100">
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <i class="fa-solid fa-layer-group"></i>
-            <div class="fw-bold">3 mô hình</div>
-          </div>
-          <div class="muted">So sánh XGBoost / ExtraTrees / RandomForest cho dự báo ngày mai.</div>
+  <div class="glass-card p-0 overflow-hidden">
+    <div class="dash-hero px-4 py-4 px-md-5 py-md-5">
+      <div class="row align-items-center g-4">
+        <div class="col-lg-7">
+          <div class="wx-kicker mb-2">Hệ thống dự báo</div>
+          <h1 class="page-title mb-3">Lượng mưa thông minh</h1>
+          <p class="lead-ish mb-0">
+            Ba mô hình học máy (RandomForest, XGBoost, ExtraTrees), pipeline 2 bước và giao diện web —
+            theo dõi dự báo, nhập thực tế và cải thiện độ chính xác theo thời gian.
+          </p>
         </div>
-      </div>
-      <div class="col-md-4">
-        <div class="glass-card p-4 h-100">
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <i class="fa-solid fa-chart-line"></i>
-            <div class="fw-bold">Biểu đồ đường</div>
+        <div class="col-lg-5 text-lg-end">
+          <div class="d-flex flex-column flex-sm-row flex-lg-column align-items-stretch align-items-lg-end gap-2 justify-content-lg-end">
+            <a class="btn btn-brand btn-lg px-4 py-3" href="/daily-predict/">
+              <i class="fa-solid fa-cloud-sun-rain me-2"></i>Dự báo ngày mai
+            </a>
+            <a class="btn btn-soft btn-lg px-4 py-3" href="/predict/">
+              <i class="fa-regular fa-calendar me-2"></i>Dự đoán theo ngày
+            </a>
           </div>
-          <div class="muted">Thêm điểm theo ngày dự đoán để theo dõi xu hướng lượng mưa.</div>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="glass-card p-4 h-100">
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <i class="fa-solid fa-bullseye"></i>
-            <div class="fw-bold">Metrics</div>
-          </div>
-          <div class="muted">Xem MAE/RMSE/R² và các chỉ số classifier.</div>
         </div>
       </div>
     </div>
 
-    <div class="mt-4 d-flex flex-wrap gap-2">
-      <a class="btn btn-soft" href="/metrics/"><i class="fa-solid fa-gauge-high me-2"></i>Metrics</a>
-      <a class="btn btn-soft" href="/compare/"><i class="fa-solid fa-chart-simple me-2"></i>Biểu đồ</a>
-      <a class="btn btn-soft" href="/actual-input/"><i class="fa-solid fa-pen-to-square me-2"></i>Nhập Actual</a>
+    <div class="p-4 p-md-5">
+      <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+        <div class="wx-kicker">Luồng làm việc</div>
+        <span class="small" style="color: rgba(255,255,255,.5);">Chọn thẻ để mở trang</span>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-4">
+          <a href="/daily-predict/" class="wx-feature-link d-block h-100">
+            <div class="wx-panel wx-panel-interactive p-4 h-100">
+              <div class="d-flex align-items-start gap-3">
+                <span class="wx-icon-bubble text-white"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                <div class="flex-grow-1 min-w-0">
+                  <div class="wx-feature-title">Ngày mai</div>
+                  <p class="muted small mb-0 mt-2">PoP, kỳ vọng mm và lưu kết quả vào CSDL để đối chiếu với thực tế.</p>
+                  <span class="wx-go">Mở trang <i class="fa-solid fa-chevron-right" style="font-size:.65rem"></i></span>
+                </div>
+              </div>
+            </div>
+          </a>
+        </div>
+        <div class="col-md-4">
+          <a href="/compare/" class="wx-feature-link d-block h-100">
+            <div class="wx-panel wx-panel-interactive p-4 h-100">
+              <div class="d-flex align-items-start gap-3">
+                <span class="wx-icon-bubble text-white"><i class="fa-solid fa-chart-line"></i></span>
+                <div class="flex-grow-1 min-w-0">
+                  <div class="wx-feature-title">Biểu đồ &amp; chuỗi ngày</div>
+                  <p class="muted small mb-0 mt-2">Thêm điểm theo từng lần dự báo; so sánh XGB / ET / RF trên một trục thời gian.</p>
+                  <span class="wx-go">Mở biểu đồ <i class="fa-solid fa-chevron-right" style="font-size:.65rem"></i></span>
+                </div>
+              </div>
+            </div>
+          </a>
+        </div>
+        <div class="col-md-4">
+          <a href="/metrics/" class="wx-feature-link d-block h-100">
+            <div class="wx-panel wx-panel-interactive p-4 h-100">
+              <div class="d-flex align-items-start gap-3">
+                <span class="wx-icon-bubble text-white"><i class="fa-solid fa-gauge-high"></i></span>
+                <div class="flex-grow-1 min-w-0">
+                  <div class="wx-feature-title">Độ chính xác</div>
+                  <p class="muted small mb-0 mt-2">Classifier &amp; regressor: accuracy, F1, MAE, RMSE, R² — theo dõi chất lượng mô hình.</p>
+                  <span class="wx-go">Xem metrics <i class="fa-solid fa-chevron-right" style="font-size:.65rem"></i></span>
+                </div>
+              </div>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <div class="wx-kicker mt-4 mb-2">Truy cập nhanh</div>
+      <div class="wx-quick-row d-flex flex-wrap gap-2">
+        <a class="btn btn-soft" href="/actual-input/"><i class="fa-solid fa-droplet me-2"></i>Nhập mưa thực tế</a>
+        <a class="btn btn-soft" href="/predict/"><i class="fa-solid fa-calendar-day me-2"></i>Chọn ngày dự đoán</a>
+        <a class="btn btn-soft" href="/compare/"><i class="fa-solid fa-chart-simple me-2"></i>Biểu đồ</a>
+        <a class="btn btn-soft" href="/metrics/"><i class="fa-solid fa-table me-2"></i>Bảng metrics</a>
+      </div>
     </div>
   </div>
 {% endblock %}

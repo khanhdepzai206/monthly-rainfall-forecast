@@ -1,16 +1,39 @@
 {% extends 'predictor/base.html' %}
 
+{% block extra_css %}
+<style>
+  .wx-subcard{
+    background: rgba(255,255,255,.1);
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 18px;
+    color: rgba(255,255,255,.95);
+    backdrop-filter: blur(12px);
+  }
+  .wx-subcard h3, .wx-subcard h4{ color: #fff; }
+  .wx-subcard .text-muted{ color: rgba(255,255,255,.62) !important; }
+  .wx-subcard hr{ border-color: rgba(255,255,255,.14); opacity:1; }
+  .wx-subcard .table{ margin-bottom: 0; }
+  .table-hover tbody tr:hover > *{
+    background-color: rgba(255,255,255,.1) !important;
+  }
+  #loading .spinner-border{ color: #fff !important; border-right-color: transparent; }
+</style>
+{% endblock %}
+
 {% block title %}Model Metrics - Độ Chính Xác{% endblock %}
 
 {% block predictor_content %}
-<div class="glass-card p-4 p-md-5">
-    <h1 class="page-title">Metrics</h1>
-    <p class="page-subtitle">Theo dõi độ chính xác và sai số của các mô hình.</p>
-    <div class="divider my-3"></div>
+<div class="glass-card p-0 overflow-hidden">
+    <div class="px-4 py-3 px-md-5 py-md-4" style="background: radial-gradient(90% 100% at 0% 0%, rgba(255,255,255,.12), transparent 50%); border-bottom: 1px solid rgba(255,255,255,.1);">
+        <div class="wx-kicker mb-1">Đánh giá</div>
+        <h1 class="page-title mb-1">Metrics</h1>
+        <p class="page-subtitle mb-0">Classifier &amp; regressor — tải từ API sau khi đã train mô hình.</p>
+    </div>
+    <div class="p-4 p-md-5 pt-4">
     
     <!-- Loading -->
     <div id="loading" class="text-center">
-        <div class="spinner-border text-info" role="status"></div>
+        <div class="spinner-border text-light" role="status"></div>
         <p class="muted mt-2 mb-0">Đang tải thông tin mô hình...</p>
     </div>
     
@@ -67,19 +90,19 @@
         <!-- Best Models -->
         <div class="row mt-5">
             <div class="col-md-6">
-                <div class="card p-4 bg-light shadow">
+                <div class="wx-subcard p-4 shadow-none">
                     <h3>🏆 Classifier Tốt Nhất</h3>
                     <hr>
-                    <h4 id="best-classifier" style="color: #0066cc;">-</h4>
+                    <h4 id="best-classifier" class="text-white">-</h4>
                     <p id="best-classifier-score">-</p>
                     <small class="text-muted">Dùng cho: Dự đoán có mưa hay không</small>
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="card p-4 bg-light shadow">
+                <div class="wx-subcard p-4 shadow-none">
                     <h3>🏆 Regressor Tốt Nhất</h3>
                     <hr>
-                    <h4 id="best-regressor" style="color: #00cc00;">-</h4>
+                    <h4 id="best-regressor" class="text-white">-</h4>
                     <p id="best-regressor-score">-</p>
                     <small class="text-muted">Dùng cho: Dự đoán lượng mưa (mm)</small>
                 </div>
@@ -89,7 +112,7 @@
         <!-- Metrics Explanation -->
         <div class="row mt-5">
             <div class="col-md-12">
-                <div class="card p-4 shadow">
+                <div class="wx-subcard p-4 shadow-none">
                     <h3>📖 Giải Thích Các Chỉ Số</h3>
                     <hr>
                     
@@ -147,29 +170,8 @@
             </div>
         </div>
     </div>
+    </div>
 </div>
-
-<style>
-    .table-hover tbody tr:hover {
-        background-color: #f5f5f5;
-        cursor: pointer;
-    }
-    
-    .card {
-        border-radius: 10px;
-        border: none;
-    }
-    
-    /* Inherit dark theme colors from `_base.html` */
-    
-    .bg-light {
-        background-color: #f8f9fa !important;
-    }
-    
-    .shadow {
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {

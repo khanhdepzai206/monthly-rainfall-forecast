@@ -106,37 +106,54 @@
                 <h3>📅 Dự đoán Khoảng Ngày</h3>
                 <hr>
                 
-                <form id="range-form" class="row g-3">
-                    <div class="col-md-2">
-                        <label for="range-year">Năm:</label>
+                <form id="range-form" class="row g-3" onsubmit="return false;">
+                    <div class="col-md-3 col-lg-2">
+                        <label for="range-year">Năm</label>
                         <input type="number" id="range-year" class="form-control" min="1979" max="2100" value="2023">
                     </div>
-                    
-                    <div class="col-md-2">
-                        <label for="range-month">Tháng:</label>
-                        <input type="number" id="range-month" class="form-control" min="1" max="12" value="5">
+
+                    <div class="col-md-4 col-lg-3">
+                        <label for="range-month">Tháng</label>
+                        <select id="range-month" class="form-control" required>
+                            <option value="">-- Chọn tháng --</option>
+                            <option value="1">Tháng 1</option>
+                            <option value="2">Tháng 2</option>
+                            <option value="3">Tháng 3</option>
+                            <option value="4">Tháng 4</option>
+                            <option value="5" selected>Tháng 5</option>
+                            <option value="6">Tháng 6</option>
+                            <option value="7">Tháng 7</option>
+                            <option value="8">Tháng 8</option>
+                            <option value="9">Tháng 9</option>
+                            <option value="10">Tháng 10</option>
+                            <option value="11">Tháng 11</option>
+                            <option value="12">Tháng 12</option>
+                        </select>
                     </div>
-                    
-                    <div class="col-md-2">
-                        <label for="range-start">Ngày bắt đầu:</label>
-                        <input type="number" id="range-start" class="form-control" min="1" max="31" value="1">
+
+                    <div class="col-12">
+                        <label class="d-block">Chọn ngày trong tháng</label>
+                        <p class="text-muted small mb-2" id="range-day-hint">
+                            Bấm một ngày để chọn <strong>ngày bắt đầu</strong>, bấm ngày khác (sau hoặc cùng ngày) để chọn <strong>ngày kết thúc</strong>.
+                            Nếu chỉ chọn ngày bắt đầu rồi dự đoán, hệ thống lấy tối đa 10 ngày liên tiếp trong tháng.
+                        </p>
+                        <div id="range-day-grid" class="range-day-grid mb-1"></div>
+                        <div class="small text-muted" id="range-selection-label">Chưa chọn khoảng ngày.</div>
                     </div>
-                    
-                    <div class="col-md-2">
-                        <label for="range-days">Số ngày:</label>
-                        <input type="number" id="range-days" class="form-control" min="1" max="31" value="10">
-                    </div>
-                    
-                    <div class="col-md-4 d-flex align-items-end">
-                        <button type="button" class="btn btn-success btn-block" onclick="predictRange()">
-                            🔮 Dự Đoán 10 Ngày
+
+                    <div class="col-12 d-flex flex-wrap gap-2 align-items-center">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="range-clear-days">
+                            Xóa chọn ngày
+                        </button>
+                        <button type="button" class="btn btn-success" onclick="predictRange()">
+                            🔮 Dự đoán khoảng đã chọn
                         </button>
                     </div>
                 </form>
                 
                 <!-- Bảng kết quả -->
                 <div id="range-results" style="display:none; margin-top: 30px;">
-                    <h4>Kết quả dự đoán 10 ngày:</h4>
+                    <h4>Kết quả dự đoán theo khoảng đã chọn:</h4>
                     <table class="table table-striped">
                         <thead>
                             <tr>
@@ -174,6 +191,37 @@
     #rainfall-amount {
         font-size: 3em;
         margin: 20px 0;
+    }
+
+    .range-day-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .range-day-grid .day-chip {
+        min-width: 2.5rem;
+        padding: 0.35rem 0.5rem;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        background: #fff;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background .15s, border-color .15s, color .15s;
+    }
+    .range-day-grid .day-chip:hover {
+        border-color: #28a745;
+        background: #f0fff4;
+    }
+    .range-day-grid .day-chip.is-start,
+    .range-day-grid .day-chip.is-end {
+        background: #28a745;
+        border-color: #1e7e34;
+        color: #fff;
+    }
+    .range-day-grid .day-chip.in-range {
+        background: #d4edda;
+        border-color: #28a745;
     }
 </style>
 
@@ -251,44 +299,167 @@ function predictDaily() {
     });
 }
 
-function predictRange() {
-    const year = document.getElementById('range-year').value;
-    const month = document.getElementById('range-month').value;
-    const startDay = document.getElementById('range-start').value;
-    const numDays = document.getElementById('range-days').value;
-    
-    // Gọi API
-    fetch(`/api/predict-range/?year=${year}&month=${month}&start_day=${startDay}&num_days=${numDays}`)
-    .then(response => response.json())
-    .then(data => {
-        if (data.success && data.data.length > 0) {
-            // Hiển thị bảng kết quả
-            const tbody = document.getElementById('range-table-body');
-            tbody.innerHTML = '';
-            
-            data.data.forEach(result => {
-                const row = tbody.insertRow();
-                row.innerHTML = `
-                    <td>${result.date}</td>
-                    <td>${result.has_rain ? '☔' : '☀️'}</td>
-                    <td>${(result.rain_probability * 100).toFixed(1)}%</td>
-                    <td>${result.predicted_rainfall.toFixed(2)} mm</td>
-                `;
+/** Dự đoán khoảng: chọn tháng → bấm ngày trên lưới (không nhập số tay). */
+let rangeStartDay = null;
+let rangeEndDay = null;
+
+function daysInMonth(year, month1) {
+    return new Date(parseInt(year, 10), parseInt(month1, 10), 0).getDate();
+}
+
+function updateRangeSelectionLabel() {
+    const el = document.getElementById('range-selection-label');
+    const y = document.getElementById('range-year').value;
+    const m = document.getElementById('range-month').value;
+    if (!m) {
+        el.textContent = 'Chưa chọn khoảng ngày.';
+        return;
+    }
+    if (rangeStartDay == null) {
+        el.textContent = 'Chưa chọn ngày bắt đầu trên lưới.';
+        return;
+    }
+    if (rangeEndDay == null) {
+        el.textContent = 'Đã chọn bắt đầu ngày ' + rangeStartDay + '/' + m + '/' + y + '. Chọn thêm ngày kết thúc, hoặc bấm Dự đoán để lấy tối đa 10 ngày liên tiếp trong tháng.';
+        return;
+    }
+    var n = rangeEndDay - rangeStartDay + 1;
+    el.textContent = 'Từ ngày ' + rangeStartDay + ' đến ngày ' + rangeEndDay + '/' + m + '/' + y + ' (' + n + ' ngày).';
+}
+
+function paintRangeChips() {
+    var grid = document.getElementById('range-day-grid');
+    if (!grid) return;
+    var chips = grid.querySelectorAll('.day-chip');
+    var lo, hi;
+    if (rangeStartDay != null && rangeEndDay != null) {
+        lo = Math.min(rangeStartDay, rangeEndDay);
+        hi = Math.max(rangeStartDay, rangeEndDay);
+    } else {
+        lo = hi = rangeStartDay;
+    }
+    chips.forEach(function(btn) {
+        var d = parseInt(btn.dataset.day, 10);
+        btn.classList.remove('is-start', 'is-end', 'in-range');
+        if (rangeStartDay == null) return;
+        if (rangeEndDay == null) {
+            if (d === rangeStartDay) btn.classList.add('is-start');
+            return;
+        }
+        if (d === lo) btn.classList.add('is-start');
+        if (d === hi) btn.classList.add('is-end');
+        if (lo === hi && d === lo) btn.classList.add('is-end');
+        if (d > lo && d < hi) btn.classList.add('in-range');
+    });
+}
+
+function onRangeDayClick(day) {
+    if (rangeStartDay == null || (rangeStartDay != null && rangeEndDay != null)) {
+        rangeStartDay = day;
+        rangeEndDay = null;
+    } else {
+        if (day >= rangeStartDay) {
+            rangeEndDay = day;
+        } else {
+            rangeEndDay = rangeStartDay;
+            rangeStartDay = day;
+        }
+    }
+    updateRangeSelectionLabel();
+    paintRangeChips();
+}
+
+function buildRangeDayGrid() {
+    var grid = document.getElementById('range-day-grid');
+    var y = document.getElementById('range-year').value;
+    var m = document.getElementById('range-month').value;
+    rangeStartDay = null;
+    rangeEndDay = null;
+    grid.innerHTML = '';
+    if (!m) {
+        updateRangeSelectionLabel();
+        return;
+    }
+    var dim = daysInMonth(y, m);
+    for (var d = 1; d <= dim; d++) {
+        (function(dayNum) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'day-chip';
+            btn.dataset.day = String(dayNum);
+            btn.textContent = String(dayNum);
+            btn.addEventListener('click', function() {
+                onRangeDayClick(dayNum);
             });
-            
+            grid.appendChild(btn);
+        })(d);
+    }
+    updateRangeSelectionLabel();
+}
+
+function predictRange() {
+    var year = document.getElementById('range-year').value;
+    var month = document.getElementById('range-month').value;
+    if (!month) {
+        alert('Vui lòng chọn tháng');
+        return;
+    }
+    if (rangeStartDay == null) {
+        alert('Vui lòng chọn ít nhất ngày bắt đầu trên lưới ngày trong tháng.');
+        return;
+    }
+    var dim = daysInMonth(year, month);
+    var startDay = rangeStartDay;
+    var endDay = rangeEndDay != null ? rangeEndDay : Math.min(startDay + 9, dim);
+    var lo = Math.min(startDay, endDay);
+    var hi = Math.max(startDay, endDay);
+    startDay = lo;
+    endDay = hi;
+    var numDays = endDay - startDay + 1;
+    if (numDays > 31) numDays = 31;
+
+    fetch('/api/predict-range/?year=' + encodeURIComponent(year) + '&month=' + encodeURIComponent(month) + '&start_day=' + encodeURIComponent(startDay) + '&num_days=' + encodeURIComponent(numDays))
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
+        if (data.success && data.data && data.data.length > 0) {
+            var tbody = document.getElementById('range-table-body');
+            tbody.innerHTML = '';
+            data.data.forEach(function(result) {
+                var row = tbody.insertRow();
+                row.innerHTML =
+                    '<td>' + result.date + '</td>' +
+                    '<td>' + (result.has_rain ? '☔' : '☀️') + '</td>' +
+                    '<td>' + (result.rain_probability * 100).toFixed(1) + '%</td>' +
+                    '<td>' + result.predicted_rainfall.toFixed(2) + ' mm</td>';
+            });
             document.getElementById('range-results').style.display = 'block';
+        } else {
+            alert(data.message || 'Không có dữ liệu trả về.');
         }
     })
-    .catch(error => {
+    .catch(function(error) {
         alert('Lỗi: ' + error.message);
     });
 }
+
+document.getElementById('range-year').addEventListener('change', buildRangeDayGrid);
+document.getElementById('range-month').addEventListener('change', buildRangeDayGrid);
+document.getElementById('range-clear-days').addEventListener('click', function() {
+    rangeStartDay = null;
+    rangeEndDay = null;
+    paintRangeChips();
+    updateRangeSelectionLabel();
+});
 
 // Enter key handler
 document.getElementById('day').addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
         predictDaily();
     }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    buildRangeDayGrid();
 });
 </script>
 

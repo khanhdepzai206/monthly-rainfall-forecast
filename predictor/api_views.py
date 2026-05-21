@@ -113,6 +113,7 @@ def daily_predictions_api(request):
 
     Query params:
     - limit: số bản ghi (default 30, max 365)
+    - since: YYYY-MM-DD — chỉ trả các mốc date >= since (lọc bản demo / dữ liệu rất cũ)
 
     Response:
     {
@@ -130,14 +131,27 @@ def daily_predictions_api(request):
             limit = 30
         limit = max(1, min(limit, 365))
 
-        qs = DailyPrediction.objects.all().order_by("date")[:limit]
+        qs = DailyPrediction.objects.all()
+        since_raw = (request.GET.get("since") or "").strip()
+        if since_raw:
+            try:
+                since_d = _dt.strptime(since_raw, "%Y-%m-%d").date()
+                qs = qs.filter(date__gte=since_d)
+            except ValueError:
+                pass
+
+        # Lấy các mốc dự đoán *gần đây nhất* (theo ngày dự báo), không phải N bản ghi cũ nhất trong DB.
+        preds = list(qs.order_by("-date")[:limit])
+        preds.sort(key=lambda p: p.date)
+
         rows = []
-        for p in qs:
+        for p in preds:
             rows.append({
                 "date": p.date.strftime("%Y-%m-%d"),
                 "rf": float(p.rf_pred),
                 "xgb": float(p.xgb_pred),
-                "et": float(p.et_pred if p.et_pred is not None else (p.lr_pred or 0.0)),
+                # ExtraTrees expected mm được lưu trong lr_pred (tương thích schema cũ).
+                "et": float(p.lr_pred or 0.0),
             })
 
         return JsonResponse({"success": True, "data": rows})

@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from django.utils import timezone
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
@@ -508,12 +509,12 @@ def daily_predict(request):
     context = {
         'predictions': None,
         'best_model': None,
-        'error': None
+        'error': None,
     }
 
     if request.method == 'POST':
         try:
-            # Dùng daily_ml_system (2-stage) để dự đoán ngày mai (không tự lưu DB, không auto job).
+            # Dùng daily_ml_system (2-stage) để dự đoán ngày mai; lưu DailyPrediction để trang actual so sánh/retrain.
             # Import từ DuBao/src để tránh phụ thuộc service layer.
             dubao_src = os.path.join(os.path.dirname(__file__), '..', 'DuBao', 'src')
             sys.path.insert(0, os.path.abspath(dubao_src))
@@ -529,7 +530,6 @@ def daily_predict(request):
             expected_mm = detail["expected_mm"]
             thresholds = detail["thresholds"]
 
-            calendar_tomorrow = datetime.now().date() + timedelta(days=1)
             rain_th = 0.5
             rain_th_by_model = {}
             try:
@@ -551,6 +551,19 @@ def daily_predict(request):
             except Exception:
                 best_model = None
 
+            # Ngày mai theo lịch cấu hình Django (TIME_ZONE), không dùng datetime.now() naive.
+            calendar_tomorrow = timezone.localdate() + timedelta(days=1)
+            # Schema cũ: lr_pred dùng lưu ExtraTrees (expected mm) — evaluate_error/retrain vẫn dùng 3 cột này.
+            DailyPrediction.objects.update_or_create(
+                date=calendar_tomorrow,
+                defaults={
+                    'rf_pred': float(expected_mm.get('rf', 0.0)),
+                    'xgb_pred': float(expected_mm.get('xgb', 0.0)),
+                    'lr_pred': float(expected_mm.get('et', expected_mm.get('lr', 0.0))),
+                    'best_model': (best_model or '')[:10] if best_model else '',
+                },
+            )
+
             context.update({
                 'predictions': {
                     # Chuẩn "dự báo chuyên nghiệp": hiển thị expected mm + mm_if_rain + PoP
@@ -570,7 +583,7 @@ def daily_predict(request):
                     'rain_threshold': round(float(rain_th) * 100, 0),
                 },
                 'best_model': best_model,
-                'date': calendar_tomorrow.strftime('%d/%m/%Y'),
+                'forecast_date': calendar_tomorrow.strftime('%d/%m/%Y'),
                 'data_as_of': pd.Timestamp(prediction_date).strftime('%d/%m/%Y'),
             })
 
@@ -646,8 +659,17 @@ def actual_input(request):
         else:
             messages.warning(request, 'Vui lòng nhập đầy đủ ngày và lượng mưa thực tế.')
 
-    # Hiển thị actuals gần đây
-    recent_actuals = ActualRainfall.objects.select_related('prediction').order_by('-date')[:10]
+    # Hiển thị actuals gần đây; gắn lại prediction nếu đã lưu DailyPrediction sau khi nhập actual.
+    recent_actuals = list(
+        ActualRainfall.objects.select_related('prediction').order_by('-date')[:10]
+    )
+    for actual in recent_actuals:
+        if actual.prediction_id is None:
+            pred = DailyPrediction.objects.filter(date=actual.date).first()
+            if pred:
+                actual.prediction = pred
+                actual.save(update_fields=['prediction'])
+                actual.evaluate_error()
 
     context = {
         'form': form,

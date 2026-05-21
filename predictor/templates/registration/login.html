@@ -3,33 +3,41 @@
 {% block title %}Đăng nhập — Dự báo lượng mưa{% endblock %}
 
 {% block content %}
-  <div class="glass-card p-4 p-md-5" style="max-width:520px; margin: 0 auto;">
-    <h1 class="page-title"><i class="fa-solid fa-right-to-bracket me-2"></i>Đăng nhập</h1>
-    <p class="page-subtitle">Đăng nhập để lưu/đồng bộ các thao tác của bạn.</p>
-
-    <div class="divider my-4"></div>
-
-    {% if form.errors %}
-      <div class="alert alert-danger">
-        <i class="fa-solid fa-triangle-exclamation me-2"></i>
-        Sai username hoặc password.
+  <div class="glass-card p-0 overflow-hidden" style="max-width: 460px; margin: 0 auto;">
+    <div class="text-center px-4 pt-5 pb-4" style="background: radial-gradient(100% 80% at 50% 0%, rgba(255,255,255,.2), transparent 65%); border-bottom: 1px solid rgba(255,255,255,.1);">
+      <div class="wx-icon-bubble mx-auto mb-3" style="width:64px;height:64px;font-size:1.5rem;">
+        <i class="fa-solid fa-lock"></i>
       </div>
-    {% endif %}
+      <div class="wx-kicker mb-1">Tài khoản</div>
+      <h1 class="page-title mb-2">Đăng nhập</h1>
+      <p class="page-subtitle mb-0 small">Truy cập nhập actual và các thao tác yêu cầu xác thực.</p>
+    </div>
 
-    <form method="post" class="d-grid gap-3">
-      {% csrf_token %}
-      <div>
-        <label class="form-label">Username</label>
-        <input type="text" name="username" required class="form-control" autocomplete="username" />
-      </div>
-      <div>
-        <label class="form-label">Password</label>
-        <input type="password" name="password" required class="form-control" autocomplete="current-password" />
-      </div>
-      <input type="hidden" name="next" value="{{ next }}" />
-      <button type="submit" class="btn btn-brand">
-        <i class="fa-solid fa-lock me-2"></i>Đăng nhập
-      </button>
-    </form>
+    <div class="p-4 p-md-5 pt-3">
+      {% if form.errors %}
+        <div class="alert alert-danger py-2 small mb-3">
+          <i class="fa-solid fa-triangle-exclamation me-2"></i>Sai username hoặc mật khẩu.
+        </div>
+      {% endif %}
+
+      <form method="post" class="d-grid gap-3">
+        {% csrf_token %}
+        <div>
+          <label class="form-label">Username</label>
+          <input type="text" name="username" required class="form-control form-control-lg" autocomplete="username" placeholder="Tên đăng nhập" />
+        </div>
+        <div>
+          <label class="form-label">Password</label>
+          <input type="password" name="password" required class="form-control form-control-lg" autocomplete="current-password" placeholder="••••••••" />
+        </div>
+        <input type="hidden" name="next" value="{{ next }}" />
+        <button type="submit" class="btn btn-brand btn-lg w-100 py-3 mt-1">
+          <i class="fa-solid fa-right-to-bracket me-2"></i>Vào hệ thống
+        </button>
+      </form>
+      <p class="text-center muted small mt-4 mb-0">
+        <a href="/" class="text-decoration-none" style="border-bottom:none !important; color: rgba(255,255,255,.75);">← Về Dashboard</a>
+      </p>
+    </div>
   </div>
 {% endblock %}

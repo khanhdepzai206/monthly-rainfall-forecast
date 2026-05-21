@@ -4,9 +4,7 @@
 
 {% block extra_css %}
 <style>
-  .panel-soft{ background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.10); border-radius: 18px; }
-  .prediction-tile{ background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.10); border-radius: 18px; padding: 18px; }
-  .prediction-value{ font-size: 2.2rem; font-weight: 900; letter-spacing: -0.02em; }
+  .loading{ display:none; }
   .spinner-dot{
     width: 18px; height: 18px; border-radius: 999px;
     border: 3px solid rgba(255,255,255,.18);
@@ -15,25 +13,60 @@
     display:inline-block;
   }
   @keyframes spin{ to{ transform: rotate(360deg); } }
+
+  .predict-day-grid{
+    display:flex; flex-wrap:wrap; gap:6px;
+    margin-top:6px;
+    min-height: 2.5rem;
+  }
+  .predict-day-chip{
+    min-width: 2.35rem;
+    padding: .38rem .5rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.22);
+    background: rgba(255,255,255,.08);
+    color: rgba(255,255,255,.92);
+    font-size: .875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+  }
+  .predict-day-chip:hover{
+    background: rgba(255,255,255,.14);
+    border-color: rgba(255,255,255,.35);
+  }
+  .predict-day-chip.is-selected{
+    border-color: rgba(34,211,238,.75);
+    background: rgba(34,211,238,.18);
+    box-shadow: 0 0 0 1px rgba(34,211,238,.28);
+    color: #fff;
+  }
+  #predict-day-hint{ font-size: .8rem; opacity: .85; }
 </style>
 {% endblock %}
 
 {% block content %}
-  <div class="glass-card p-4 p-md-5">
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-2">
-      <div>
-        <h1 class="page-title"><i class="fa-regular fa-calendar me-2"></i>Dự đoán theo ngày</h1>
-        <p class="page-subtitle">Chọn ngày và xem dự đoán từ 3 mô hình (RF / XGB / LR).</p>
+  <div class="glass-card p-0 overflow-hidden">
+    <div class="px-4 py-3 px-md-5 py-md-4" style="background: radial-gradient(100% 120% at 0% 0%, rgba(255,255,255,.14), transparent 55%); border-bottom: 1px solid rgba(255,255,255,.1);">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+        <div>
+          <div class="wx-kicker mb-1">Theo lịch</div>
+          <h1 class="page-title mb-1"><i class="fa-regular fa-calendar me-2"></i>Dự đoán theo ngày</h1>
+          <p class="page-subtitle mb-0">RF / XGB / LR — có thể mở rộng rolling khi chọn ngày xa hơn dữ liệu đã train.</p>
+        </div>
+        <a class="btn btn-soft" href="/daily-predict/"><i class="fa-solid fa-cloud-sun-rain me-2"></i>Sang trang ngày mai</a>
       </div>
-      <a class="btn btn-soft" href="/daily-predict/"><i class="fa-solid fa-cloud-sun-rain me-2"></i>Ngày mai</a>
     </div>
 
-    <div class="divider my-4"></div>
-
-        <div class="row">
+    <div class="p-4 p-md-5 pt-4">
+        <div class="row g-4">
             <div class="col-md-4">
-                <div class="panel-soft p-4">
-                    <h5 class="mb-3"><i class="fa-solid fa-pen-to-square me-2"></i>Chọn ngày dự đoán</h5>
+                <div class="wx-panel p-4 h-100">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                      <span class="wx-icon-bubble" style="width:44px;height:44px;font-size:1.1rem;"><i class="fa-solid fa-sliders"></i></span>
+                      <h5 class="mb-0 fw-bold">Thông số</h5>
+                    </div>
                     <form id="predictForm">
                         <div class="mb-3">
                             <label for="year" class="form-label">Năm</label>
@@ -60,8 +93,10 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="day" class="form-label">Ngày</label>
-                            <input type="number" class="form-control" id="day" min="1" max="31" value="1" required>
+                            <label class="form-label">Ngày</label>
+                            <p class="form-text mb-2" id="predict-day-hint">Chọn tháng (và năm) trước — các ngày trong tháng sẽ hiện bên dưới để bạn bấm chọn, không cần gõ số.</p>
+                            <input type="hidden" id="day" value="">
+                            <div id="predict-day-grid" class="predict-day-grid" role="group" aria-label="Chọn ngày trong tháng"></div>
                         </div>
 
                         <button type="submit" class="btn btn-brand w-100" id="predictBtn">
@@ -87,7 +122,7 @@
 
                     <div class="row">
                         <div class="col-md-4">
-                            <div class="prediction-tile">
+                            <div class="wx-tile">
                                 <div class="model-name">
                                     <i class="fa-solid fa-tree text-success me-2"></i>RandomForest
                                 </div>
@@ -98,7 +133,7 @@
                         </div>
 
                         <div class="col-md-4">
-                            <div class="prediction-tile">
+                            <div class="wx-tile">
                                 <div class="model-name">
                                     <i class="fa-solid fa-rocket text-warning me-2"></i>XGBoost
                                 </div>
@@ -109,7 +144,7 @@
                         </div>
 
                         <div class="col-md-4">
-                            <div class="prediction-tile">
+                            <div class="wx-tile">
                                 <div class="model-name">
                                     <i class="fa-solid fa-chart-line text-info me-2"></i>LinearRegression
                                 </div>
@@ -136,7 +171,7 @@
                         </div>
                         <div class="table-responsive">
                             <table class="table table-hover table-sm">
-                                <thead style="background: #667eea; color: white;">
+                                <thead class="table-dark">
                                     <tr>
                                         <th>Ngày</th>
                                         <th>RF (mm)</th>
@@ -162,6 +197,7 @@
                 </div>
             </div>
         </div>
+    </div>
   </div>
 {% endblock %}
 
@@ -170,12 +206,66 @@
         // Ngày cuối cùng có dữ liệu
         const MAX_DATE = new Date(2026, 3, 1); // April 1, 2026 (month is 0-indexed)
 
+        function daysInMonth(year, month1) {
+            return new Date(parseInt(year, 10), parseInt(month1, 10), 0).getDate();
+        }
+
+        function buildPredictDayGrid() {
+            const grid = document.getElementById('predict-day-grid');
+            const hint = document.getElementById('predict-day-hint');
+            const yearEl = document.getElementById('year');
+            const monthEl = document.getElementById('month');
+            const dayHidden = document.getElementById('day');
+            const y = yearEl.value;
+            const m = monthEl.value;
+            dayHidden.value = '';
+            grid.innerHTML = '';
+            if (!m) {
+                hint.textContent = 'Chọn tháng (và năm) trước — các ngày trong tháng sẽ hiện bên dưới để bạn bấm chọn, không cần gõ số.';
+                return;
+            }
+            hint.textContent = 'Bấm một ngày để chọn.';
+            const dim = daysInMonth(y, m);
+            for (let d = 1; d <= dim; d++) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'predict-day-chip';
+                btn.textContent = String(d);
+                btn.dataset.day = String(d);
+                btn.addEventListener('click', function() {
+                    grid.querySelectorAll('.predict-day-chip').forEach(function(c) {
+                        c.classList.remove('is-selected');
+                    });
+                    btn.classList.add('is-selected');
+                    dayHidden.value = String(d);
+                });
+                grid.appendChild(btn);
+            }
+        }
+
+        document.getElementById('year').addEventListener('change', buildPredictDayGrid);
+        document.getElementById('year').addEventListener('input', buildPredictDayGrid);
+        document.getElementById('month').addEventListener('change', buildPredictDayGrid);
+
         document.getElementById('predictForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
             const year = parseInt(document.getElementById('year').value);
             const month = parseInt(document.getElementById('month').value);
-            const day = parseInt(document.getElementById('day').value);
+            const day = parseInt(document.getElementById('day').value, 10);
+
+            if (!month) {
+                document.getElementById('errorMessage').textContent = 'Vui lòng chọn tháng.';
+                document.getElementById('resultContainer').style.display = 'none';
+                document.getElementById('errorContainer').style.display = 'block';
+                return;
+            }
+            if (!day || isNaN(day)) {
+                document.getElementById('errorMessage').textContent = 'Vui lòng chọn một ngày trên lưới (các nút 1, 2, 3… sau khi đã chọn tháng).';
+                document.getElementById('resultContainer').style.display = 'none';
+                document.getElementById('errorContainer').style.display = 'block';
+                return;
+            }
 
             // Kiểm tra ngày có hợp lệ không
             const selectedDate = new Date(year, month - 1, day); // month is 0-indexed
@@ -269,5 +359,7 @@
                 tbody.innerHTML += row;
             });
         }
+
+        buildPredictDayGrid();
     </script>
 {% endblock %}

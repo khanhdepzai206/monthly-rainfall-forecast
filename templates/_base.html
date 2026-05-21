@@ -9,183 +9,257 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
 
   <style>
+    /* Theme kiểu ứng dụng Thời tiết iOS: nền trời, thẻ kính mờ, chữ SF */
     :root{
-      --bg0:#0b1220;
-      --bg1:#0f172a;
-      --card:#0b1220cc;
-      --card2:#111827cc;
-      --stroke:rgba(255,255,255,.08);
-      --text:rgba(255,255,255,.92);
-      --muted:rgba(255,255,255,.68);
-      --brand1:#7c3aed;
-      --brand2:#22d3ee;
-      --brand3:#34d399;
-      --shadow: 0 18px 50px rgba(0,0,0,.35);
+      --stroke: rgba(255,255,255,.18);
+      --text: rgba(255,255,255,.96);
+      --muted: rgba(255,255,255,.72);
+      --frost: rgba(255,255,255,.14);
+      --frost2: rgba(255,255,255,.22);
+      --shadow: 0 24px 60px rgba(0, 35, 80, .4);
     }
+
+    html{ -webkit-font-smoothing: antialiased; }
 
     body{
-      min-height:100vh;
-      background:
-        radial-gradient(1200px 600px at 10% 10%, rgba(124,58,237,.30), transparent 55%),
-        radial-gradient(900px 500px at 90% 15%, rgba(34,211,238,.25), transparent 55%),
-        radial-gradient(1000px 700px at 50% 110%, rgba(52,211,153,.18), transparent 55%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
-      color:var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      min-height: 100vh;
+      margin: 0;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, "Segoe UI", Roboto, sans-serif;
       overflow-x: hidden;
+      background: linear-gradient(168deg,
+        #5eb8ff 0%,
+        #3d9eff 14%,
+        #2b7fd4 32%,
+        #1a5590 55%,
+        #123a66 78%,
+        #0c2848 100%);
+      background-attachment: fixed;
     }
 
-    /* Animated background layer */
+    /* Lớp mây / sáng rất nhẹ (thay blob tím cũ) */
     .bg-anim{
       position: fixed;
       inset: 0;
       z-index: -1;
       pointer-events: none;
-      opacity: .95;
+      opacity: .45;
     }
     .bg-anim::before{
       content:"";
       position:absolute;
-      inset:-30%;
+      inset: -20%;
       background:
-        radial-gradient(closest-side at 20% 20%, rgba(124,58,237,.45), transparent 55%),
-        radial-gradient(closest-side at 80% 30%, rgba(34,211,238,.35), transparent 55%),
-        radial-gradient(closest-side at 50% 80%, rgba(52,211,153,.25), transparent 55%);
-      filter: blur(30px);
-      transform: translateZ(0);
-      animation: floatBlobs 14s ease-in-out infinite alternate;
+        radial-gradient(closest-side at 15% 25%, rgba(255,255,255,.25), transparent 50%),
+        radial-gradient(closest-side at 85% 20%, rgba(200,235,255,.2), transparent 45%),
+        radial-gradient(closest-side at 50% 90%, rgba(255,255,255,.08), transparent 50%);
+      filter: blur(28px);
+      animation: wxDrift 18s ease-in-out infinite alternate;
     }
     .bg-anim::after{
       content:"";
       position:absolute;
-      inset:-40%;
-      background: conic-gradient(from 180deg at 50% 50%,
-        rgba(124,58,237,.18),
-        rgba(34,211,238,.14),
-        rgba(52,211,153,.12),
-        rgba(124,58,237,.18));
-      filter: blur(60px);
-      opacity: .55;
-      animation: slowSpin 22s linear infinite;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 40%, rgba(0,25,55,.25) 100%);
     }
-    @keyframes floatBlobs{
-      0%{ transform: translate(-2%, -1%) scale(1.02); }
-      50%{ transform: translate(2%, 1%) scale(1.05); }
-      100%{ transform: translate(-1%, 2%) scale(1.03); }
-    }
-    @keyframes slowSpin{
-      from{ transform: rotate(0deg); }
-      to{ transform: rotate(360deg); }
+    @keyframes wxDrift{
+      from{ transform: translate(0,0) scale(1); }
+      to{ transform: translate(2%, -1%) scale(1.03); }
     }
 
     .app-shell{
-      max-width: 1200px;
+      max-width: 1100px;
       margin: 0 auto;
-      padding: 22px 16px 40px 16px;
+      padding: 18px 14px 36px;
     }
 
     .app-nav{
-      backdrop-filter: blur(14px);
-      background: rgba(17,24,39,.55);
-      border:1px solid var(--stroke);
-      border-radius: 16px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: rgba(255,255,255,.12);
+      border: 1px solid var(--stroke);
+      border-radius: 20px;
       box-shadow: var(--shadow);
+    }
+
+    .navbar-toggler{
+      border-color: rgba(255,255,255,.35);
+    }
+    .navbar-toggler-icon{
+      filter: brightness(0) invert(1);
     }
 
     .brand-dot{
-      width:10px;height:10px;border-radius:999px;
-      background: linear-gradient(135deg, var(--brand1), var(--brand2));
-      display:inline-block;margin-right:10px;
-      box-shadow: 0 0 0 4px rgba(124,58,237,.10);
+      width: 10px; height: 10px; border-radius: 999px;
+      background: linear-gradient(145deg, #ffe08a, #fff);
+      display: inline-block;
+      margin-right: 10px;
+      box-shadow: 0 0 12px rgba(255,224,138,.5);
     }
 
+    .navbar-brand{ color: #fff !important; font-weight: 700; letter-spacing: -0.02em; }
+
     .nav-link{
-      color: var(--muted) !important;
+      color: rgba(255,255,255,.78) !important;
       font-weight: 600;
-      border-radius: 12px;
+      font-size: .92rem;
+      border-radius: 14px;
       padding: 10px 12px !important;
     }
-    .nav-link:visited{
-      color: var(--muted) !important;
-    }
+    .nav-link:visited{ color: rgba(255,255,255,.78) !important; }
     .nav-link:hover{
-      background: rgba(255,255,255,.06);
-      color: var(--text) !important;
+      background: rgba(255,255,255,.12);
+      color: #fff !important;
     }
     .nav-link.active{
-      color: var(--text) !important;
-      background: linear-gradient(135deg, rgba(124,58,237,.22), rgba(34,211,238,.14));
-      border: 1px solid rgba(255,255,255,.08);
+      color: #0a3d62 !important;
+      background: rgba(255,255,255,.92);
+      border: 1px solid rgba(255,255,255,.35);
     }
 
     .glass-card{
-      backdrop-filter: blur(14px);
-      background: rgba(17,24,39,.55);
-      border:1px solid var(--stroke);
-      border-radius: 18px;
-      box-shadow: var(--shadow);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      background: linear-gradient(165deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,.09) 50%, rgba(255,255,255,.06) 100%);
+      border: 1px solid var(--stroke);
+      border-radius: 22px;
+      box-shadow:
+        var(--shadow),
+        inset 0 1px 0 rgba(255,255,255,.28),
+        inset 0 -1px 0 rgba(0,30,60,.15);
+      transition: border-color .25s ease, box-shadow .25s ease;
     }
     .glass-card:hover{
-      border-color: rgba(255,255,255,.12);
+      border-color: rgba(255,255,255,.32);
+      box-shadow:
+        0 28px 70px rgba(0, 35, 80, .45),
+        inset 0 1px 0 rgba(255,255,255,.32),
+        inset 0 -1px 0 rgba(0,30,60,.12);
     }
 
-    h1, h2, h3, h4, h5, h6{
-      color: var(--text);
+    /* Nhãn section kiểu app hệ thống */
+    .wx-kicker{
+      font-size: .72rem;
+      font-weight: 750;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.52);
     }
+
+    /* Icon trong ô bo tròn có chiều sâu */
+    .wx-icon-bubble{
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.28rem;
+      background: linear-gradient(160deg, rgba(255,255,255,.32), rgba(255,255,255,.08));
+      border: 1px solid rgba(255,255,255,.22);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.35),
+        0 8px 20px rgba(0,40,80,.2);
+    }
+
+    .wx-panel-interactive{
+      transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+    .wx-panel-interactive:hover{
+      transform: translateY(-4px);
+      border-color: rgba(255,255,255,.3) !important;
+      box-shadow:
+        0 18px 44px rgba(0,35,80,.28),
+        inset 0 1px 0 rgba(255,255,255,.2);
+    }
+
+    /* Thẻ nội dung — gradient nhẹ + highlight trên */
+    .wx-panel{
+      background: linear-gradient(180deg, rgba(255,255,255,.14) 0%, rgba(255,255,255,.07) 100%);
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 18px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+    }
+    .wx-tile{
+      background: linear-gradient(180deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,.06) 100%);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 18px;
+      padding: 18px;
+      height: 100%;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.15);
+      transition: border-color .2s ease, transform .2s ease;
+    }
+    .wx-tile:hover{
+      border-color: rgba(255,255,255,.26);
+      transform: translateY(-2px);
+    }
+    .wx-tile .prediction-value,
+    .prediction-value{
+      font-size: 2.1rem;
+      font-weight: 600;
+      letter-spacing: -0.04em;
+      font-variant-numeric: tabular-nums;
+    }
+    .wx-tile .model-name{ font-size: .85rem; font-weight: 600; opacity: .9; margin-bottom: 6px; }
+
+    h1, h2, h3, h4, h5, h6{ color: var(--text); }
 
     a{
-      color: rgba(34,211,238,.92);
+      color: rgba(255,255,255,.95);
       text-decoration: none;
+      border-bottom: 1px solid rgba(255,255,255,.25);
     }
-    a:hover{
-      color: rgba(34,211,238,1);
-      text-decoration: underline;
-    }
-    a:visited{
-      color: rgba(34,211,238,.92);
-    }
+    a:hover{ color: #fff; border-bottom-color: rgba(255,255,255,.55); }
+    a.btn, a.btn-brand, a.btn-soft, a.wx-link-chart, a.navbar-brand{ border-bottom: none; }
 
     .page-title{
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      margin: 6px 0 2px 0;
+      font-weight: 750;
+      letter-spacing: -0.035em;
+      margin: 6px 0 4px 0;
+      line-height: 1.15;
+      font-size: clamp(1.65rem, 3.5vw, 2.25rem);
     }
     .page-subtitle{
       color: var(--muted);
       margin: 0 0 14px 0;
+      font-size: .95rem;
     }
 
     .btn-brand{
       border: 0;
-      color: #061018;
-      font-weight: 800;
-      background: linear-gradient(135deg, var(--brand1), var(--brand2));
-      border-radius: 14px;
-      padding: 10px 14px;
-      box-shadow: 0 12px 28px rgba(34,211,238,.10);
+      color: #0a4a7a !important;
+      font-weight: 650;
+      background: rgba(255,255,255,.92);
+      border-radius: 999px;
+      padding: 11px 20px;
+      box-shadow: 0 12px 32px rgba(0,40,80,.35);
     }
-    .btn-brand:hover{ filter: brightness(1.03); }
+    .btn-brand:hover{ filter: brightness(1.05); color: #062f52 !important; }
 
     .btn-soft{
-      border-radius: 14px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      color: var(--text);
-      font-weight: 700;
-      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.22);
+      background: rgba(255,255,255,.12);
+      color: #fff !important;
+      font-weight: 600;
+      padding: 10px 16px;
     }
-    .btn-soft:hover{ background: rgba(255,255,255,.10); color: var(--text); }
+    .btn-soft:hover{ background: rgba(255,255,255,.2); color: #fff !important; }
+
+    .form-label{ color: rgba(255,255,255,.88); font-weight: 600; font-size: .88rem; }
 
     .form-control, .form-select{
       border-radius: 14px !important;
-      border: 1px solid rgba(255,255,255,.14) !important;
-      background: rgba(255,255,255,.06) !important;
+      border: 1px solid rgba(255,255,255,.2) !important;
+      background: rgba(0,30,60,.2) !important;
       color: var(--text) !important;
     }
     .form-control::placeholder{ color: rgba(255,255,255,.45) !important; }
     .form-control:focus, .form-select:focus{
-      box-shadow: 0 0 0 .25rem rgba(124,58,237,.18) !important;
-      border-color: rgba(124,58,237,.40) !important;
+      box-shadow: 0 0 0 .2rem rgba(255,255,255,.22) !important;
+      border-color: rgba(255,255,255,.45) !important;
     }
     /* Fix dropdown <option>: trinh duyet ve panel mau trang nen chu trang khong doc duoc */
     .form-select option,
@@ -207,9 +281,75 @@
       color-scheme: dark;
     }
 
+    /* Bảng — nền kính giống danh sách iOS */
+    .table{
+      --bs-table-bg: transparent;
+      --bs-table-color: rgba(255,255,255,.92);
+      border-color: rgba(255,255,255,.12);
+    }
+    .table > :not(caption) > * > *{
+      background-color: transparent;
+      border-bottom-color: rgba(255,255,255,.1);
+      color: inherit;
+    }
+    .table thead th,
+    .table thead.table-dark th{
+      background: rgba(0, 40, 80, .4) !important;
+      color: #fff !important;
+      border-color: rgba(255,255,255,.12);
+      font-weight: 650;
+    }
+    .table-hover > tbody > tr:hover > *{
+      background-color: rgba(255,255,255,.07) !important;
+    }
+
+    .alert{
+      border-radius: 16px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .alert-success{
+      background: rgba(52,211,153,.14);
+      border-color: rgba(52,211,153,.35);
+      color: #ecfdf5;
+    }
+    .alert-info{
+      background: rgba(147,197,253,.12);
+      border-color: rgba(147,197,253,.35);
+      color: #eff6ff;
+    }
+    .alert-danger{
+      background: rgba(248,113,113,.14);
+      border-color: rgba(248,113,113,.38);
+      color: #fef2f2;
+    }
+    .alert-warning{
+      background: rgba(250,204,21,.12);
+      border-color: rgba(250,204,21,.35);
+      color: #fffbeb;
+    }
+
     .muted{ color: var(--muted); }
     .divider{ border-top:1px solid var(--stroke); }
-    footer{ color: rgba(255,255,255,.55); font-size: 13px; padding-top: 18px; }
+    footer{
+      color: rgba(255,255,255,.5);
+      font-size: 12px;
+      padding-top: 22px;
+      letter-spacing: .02em;
+    }
+    footer .footer-inner{
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    footer .footer-dot{
+      width: 4px;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.35);
+    }
 
     /* Subtle entrance animation */
     .fade-up{
@@ -222,7 +362,7 @@
 
     /* Respect reduced motion */
     @media (prefers-reduced-motion: reduce){
-      .bg-anim::before, .bg-anim::after, .fade-up{
+      .bg-anim::before, .fade-up{
         animation: none !important;
       }
     }
@@ -264,7 +404,13 @@
 
     <footer class="text-center">
       <div class="divider my-3"></div>
-      © 2026 Rainfall Project
+      <div class="footer-inner">
+        <span>Rainfall Project</span>
+        <span class="footer-dot" aria-hidden="true"></span>
+        <span>ML · Django</span>
+        <span class="footer-dot" aria-hidden="true"></span>
+        <span>© 2026</span>
+      </div>
     </footer>
   </div>
 
